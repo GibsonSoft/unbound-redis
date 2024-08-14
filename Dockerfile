@@ -1,4 +1,4 @@
-FROM debian:bookworm as openssl
+FROM alpine:latest as openssl
 LABEL maintainer="Matthew Vance"
 
 WORKDIR /tmp/src
@@ -6,9 +6,7 @@ COPY env/openssl.env openssl.env
 
 RUN set -e -x && \
     set -o allexport && . ./openssl.env && set +o allexport && \
-    build_deps="build-essential ca-certificates curl dirmngr gnupg libidn2-0-dev libssl-dev" && \
-    DEBIAN_FRONTEND=noninteractive apt-get update && apt-get install -y --no-install-recommends \
-      $build_deps && \
+    apk update && apk add --no-cache --virtual build-deps "$BUILD_DEPS_OPENSSL" && \
     curl -L $SOURCE_OPENSSL$VERSION_OPENSSL.tar.gz -o openssl.tar.gz && \
     echo "${SHA256_OPENSSL} ./openssl.tar.gz" | sha256sum -c - && \
     curl -L $SOURCE_OPENSSL$VERSION_OPENSSL.tar.gz.asc -o openssl.tar.gz.asc && \
@@ -30,14 +28,13 @@ RUN set -e -x && \
     make depend && \
     nproc | xargs -I % make -j% && \
     make install_sw && \
-    apt-get purge -y --auto-remove \
-      $build_deps && \
+    apk del build-deps && \
     rm -rf \
         /tmp/* \
         /var/tmp/* \
         /var/lib/apt/lists/*
 
-FROM debian:bookworm as unbound
+FROM alpine:latest as unbound
 LABEL maintainer="Matthew Vance"
 
 WORKDIR /tmp/src
@@ -88,7 +85,7 @@ RUN build_deps="curl gcc libc-dev libevent-dev libexpat1-dev libnghttp2-dev make
         /var/lib/apt/lists/*
 
 
-FROM debian:bookworm
+FROM alpine:latest
 LABEL maintainer="Matthew Vance"
 
 WORKDIR /tmp/src
