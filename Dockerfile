@@ -1,40 +1,51 @@
+# ARG ALPINE_IMAGE_VERSION=3.20.0
+
+# FROM alpine:$ALPINE_IMAGE_VERSION as openssl
 FROM alpine:latest as openssl
 LABEL maintainer="Matthew Vance"
 
 WORKDIR /tmp/src
 COPY env/openssl.env openssl.env
 
-RUN set -e -x && \
-    set -o allexport && . ./openssl.env && set +o allexport && \
-    apk update && apk add --no-cache --virtual build-deps ${BUILD_DEPS_OPENSSL} && \
-    curl -L $SOURCE_OPENSSL$VERSION_OPENSSL.tar.gz -o openssl.tar.gz && \
-    echo "${SHA256_OPENSSL} ./openssl.tar.gz" | sha256sum -c - && \
-    curl -L $SOURCE_OPENSSL$VERSION_OPENSSL.tar.gz.asc -o openssl.tar.gz.asc && \
-    GNUPGHOME="$(mktemp -d)" && \
-    export GNUPGHOME && \
-    gpg --no-tty --keyserver keyserver.ubuntu.com --recv-keys "$OPGP_OPENSSL_1" "$OPGP_OPENSSL_2" "$OPGP_OPENSSL_3" "$OPGP_OPENSSL_4" "$OPGP_OPENSSL_5" && \
-    gpg --batch --verify openssl.tar.gz.asc openssl.tar.gz && \
-    tar xzf openssl.tar.gz && \
-    cd $VERSION_OPENSSL && \
+SHELL ["/bin/ash", "-cexo", "pipefail"]
+
+# Ignore DL3003, We're importing envs in shell directly
+# Ignore DL3018, we're building from source
+RUN <<EOF
+    set -o allexport && . ./openssl.env && set -a allexport
+    apk update
+    apk add --no-cache --virtual build-deps ${BUILD_DEPS_OPENSSL}
+    curl -L ${SOURCE_OPENSSL}${VERSION_OPENSSL}.tar.gz -o openssl.tar.gz
+    echo "${SHA256_OPENSSL} ./openssl.tar.gz" | sha256sum -c -
+    curl -L ${SOURCE_OPENSSL}${VERSION_OPENSSL}.tar.gz.asc -o openssl.tar.gz.asc
+    GNUPGHOME="$(mktemp -d)"
+    export GNUPGHOME
+    gpg --no-tty --keyserver keyserver.ubuntu.com --recv-keys "${OPGP_OPENSSL_1}" "${OPGP_OPENSSL_2}" "${OPGP_OPENSSL_3}" "${OPGP_OPENSSL_4}" "${OPGP_OPENSSL_5}"
+    gpg --batch --verify openssl.tar.gz.asc openssl.tar.gz
+    tar -xzf openssl.tar.gz -O ./openssl-src
+    
+    cd openssl-src
+
     ./config \
-      --prefix=/opt/openssl \
-      --openssldir=/opt/openssl \
-      no-weak-ssl-ciphers \
-      no-ssl3 \
-      no-shared \
-      enable-ec_nistp_64_gcc_128 \
-      -DOPENSSL_NO_HEARTBEATS \
-      -fstack-protector-strong && \
-    make depend && \
-    nproc | xargs -I % make -j% && \
-    make install_sw && \
-    apk del build-deps && \
+        --prefix=/opt/openssl \
+        --openssldir=/opt/openssl \
+        no-weak-ssl-ciphers \
+        no-ssl3 \
+        no-shared \
+        enable-ec_nistp_64_gcc_128 \
+        -DOPENSSL_NO_HEARTBEATS \
+        -fstack-protector-strong
+    make depend
+    nproc | xargs -I % make -j%
+    make install_sw
+    apk del build-deps
     rm -rf \
         /tmp/* \
         /var/tmp/* \
         /var/lib/apt/lists/*
+EOF
 
-FROM alpine:latest as unbound
+FROM alpine:ALPINE_IMAGE_VERSION as unbound
 LABEL maintainer="Matthew Vance"
 
 WORKDIR /tmp/src
@@ -85,7 +96,7 @@ RUN build_deps="curl gcc libc-dev libevent-dev libexpat1-dev libnghttp2-dev make
         /var/lib/apt/lists/*
 
 
-FROM alpine:latest
+FROM alpine:ALPINE_IMAGE_VERSION
 LABEL maintainer="Matthew Vance"
 
 WORKDIR /tmp/src
