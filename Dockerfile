@@ -6,7 +6,7 @@ COPY env/openssl.env openssl.env
 
 RUN set -e -x && \
     set -o allexport && . ./openssl.env && set +o allexport && \
-    apk update && apk add --no-cache --virtual build-deps "$BUILD_DEPS_OPENSSL" && \
+    apk update && apk add --no-cache --virtual build-deps ${BUILD_DEPS_OPENSSL} && \
     curl -L $SOURCE_OPENSSL$VERSION_OPENSSL.tar.gz -o openssl.tar.gz && \
     echo "${SHA256_OPENSSL} ./openssl.tar.gz" | sha256sum -c - && \
     curl -L $SOURCE_OPENSSL$VERSION_OPENSSL.tar.gz.asc -o openssl.tar.gz.asc && \
