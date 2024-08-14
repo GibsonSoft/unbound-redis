@@ -1,6 +1,6 @@
-ARG ALPINE_IMAGE_VERSION=3.20.0
+ARG ALPINE_IMAGE_VERSION=3.20.2
 
-FROM alpine:$ALPINE_IMAGE_VERSION as openssl
+FROM alpine:$ALPINE_IMAGE_VERSION AS openssl
 LABEL maintainer="Matthew Vance"
 
 WORKDIR /tmp/src
@@ -8,8 +8,9 @@ COPY env/openssl.env openssl.env
 
 SHELL ["/bin/ash", "-cexo", "pipefail"]
 
-# Ignore DL3018, we're building from source
-# hadolint ignore=DL3018
+# Ignore DL3018, we're specifying pkgs via env
+# Ignore SC2086, need to leave out double quotes to bring in deps via env
+# hadolint ignore=DL3018,SC2086
 RUN <<EOF
     # shellcheck source=/dev/null
     set -a && . ./openssl.env && set +a
@@ -48,7 +49,7 @@ RUN <<EOF
         /var/lib/apt/lists/*
 EOF
 
-FROM alpine:$ALPINE_IMAGE_VERSION as unbound
+FROM alpine:$ALPINE_IMAGE_VERSION AS unbound
 LABEL maintainer="Matthew Vance"
 
 WORKDIR /tmp/src
@@ -56,25 +57,27 @@ COPY env/unbound.env unbound.env
 
 COPY --from=openssl /opt/openssl /opt/openssl
 
-RUN build_deps="curl gcc libc-dev libevent-dev libexpat1-dev libnghttp2-dev make" && \
-    set -x && \
-    set -o allexport && . ./unbound.env && set +o allexport && \
-    DEBIAN_FRONTEND=noninteractive apt-get update && apt-get install -y --no-install-recommends \
-      $build_deps \
-      bsdmainutils \
-      ca-certificates \
-      ldnsutils \
-      libevent-2.1-7 \
-      libexpat1 \
-      libprotobuf-c-dev \
-      protobuf-c-compiler && \
-    curl -sSL $UNBOUND_DOWNLOAD_URL -o unbound.tar.gz && \
-    echo "${UNBOUND_SHA256} *unbound.tar.gz" | sha256sum -c - && \
-    tar xzf unbound.tar.gz && \
-    rm -f unbound.tar.gz && \
-    cd unbound-1.20.0 && \
-    groupadd _unbound && \
-    useradd -g _unbound -s /dev/null -d /etc _unbound && \
+SHELL ["/bin/ash", "-cexo", "pipefail"]
+
+# Ignore DL3018, we're specifying pkgs via env
+# Ignore SC2086, need to leave out double quotes to bring in deps via env
+# hadolint ignore=DL3018,SC2086
+RUN <<EOF
+    # shellcheck source=/dev/null
+    set -a && . ./unbound.env && set +a
+    apk add --no-cache --virtual build-deps ${BUILD_DEPS_UNBOUND} 
+    apk add --no-cache ${RUNTIME_DEPS_UNBOUND}
+    curl -sSL $UNBOUND_DOWNLOAD_URL -o unbound.tar.gz
+    echo "${UNBOUND_SHA256} *unbound.tar.gz" | sha256sum -c -
+    mkdir ./unbound-src
+    tar -xzf unbound.tar.gz --strip-components=1 -C ./unbound-src
+    rm -f unbound.tar.gz
+EOF
+
+WORKDIR /tmp/src/unbound-src
+
+RUN <<EOF
+    adduser -D -s /dev/null -h /etc _unbound _unbound
     ./configure \
         --disable-dependency-tracking \
         --prefix=/opt/unbound \
@@ -87,19 +90,18 @@ RUN build_deps="curl gcc libc-dev libevent-dev libexpat1-dev libnghttp2-dev make
         --enable-tfo-server \
         --enable-tfo-client \
         --enable-event-api \
-        --enable-subnet && \
-    make install && \
-    mv /opt/unbound/etc/unbound/unbound.conf /opt/unbound/etc/unbound/unbound.conf.example && \
-    apt-get purge -y --auto-remove \
-      $build_deps && \
+        --enable-subnet
+    make install
+    mv /opt/unbound/etc/unbound/unbound.conf /opt/unbound/etc/unbound/unbound.conf.example
+    apk del build-deps
     rm -rf \
         /opt/unbound/share/man \
         /tmp/* \
         /var/tmp/* \
         /var/lib/apt/lists/*
+EOF
 
-
-FROM alpine:$ALPINE_IMAGE_VERSION
+FROM alpine:$ALPINE_IMAGE_VERSION AS final
 LABEL maintainer="Matthew Vance"
 
 WORKDIR /tmp/src
