@@ -101,32 +101,6 @@ RUN <<EOF
         /var/lib/apt/lists/*
 EOF
 
-FROM alpine:$ALPINE_IMAGE_VERSION AS final
-LABEL maintainer="Matthew Vance"
-
-WORKDIR /tmp/src
-
-COPY --from=unbound /opt /opt
-
-RUN set -x && \
-    DEBIAN_FRONTEND=noninteractive apt-get update && apt-get install -y --no-install-recommends \
-      bsdmainutils \
-      ca-certificates \
-      ldnsutils \
-      libevent-2.1-7 \
-      libnghttp2-14 \
-      libexpat1 \
-      libprotobuf-c1 && \
-    groupadd _unbound && \
-    useradd -g _unbound -s /dev/null -d /etc _unbound && \
-    apt-get purge -y --auto-remove \
-      $build_deps && \
-    rm -rf \
-        /opt/unbound/share/man \
-        /tmp/* \
-        /var/tmp/* \
-        /var/lib/apt/lists/*
-
 COPY data/ /
 
 RUN chmod +x /unbound.sh
