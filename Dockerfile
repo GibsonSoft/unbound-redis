@@ -84,7 +84,7 @@ RUN <<EOF
         --enable-tfo-server \
         --enable-tfo-client \
         --enable-event-api \
-        --enable-subnet
+        --enable-subnet \
         --enable-cachedb \
         --enable-dnscrypt
     make install
