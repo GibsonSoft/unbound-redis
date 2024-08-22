@@ -70,7 +70,7 @@ RUN <<EOF
     mkdir ./unbound-src
     tar -xzf unbound.tar.gz --strip-components=1 -C ./unbound-src
     rm -f unbound.tar.gz
-    cd /tmp/src/unbound- || exit
+    cd /tmp/src/unbound-src || exit
     adduser -D -s /dev/null -h /etc _unbound _unbound
     ./configure \
         --disable-dependency-tracking \
