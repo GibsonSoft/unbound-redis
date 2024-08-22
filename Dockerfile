@@ -85,7 +85,10 @@ RUN <<EOF
         --enable-tfo-client \
         --enable-event-api \
         --enable-subnet
+        --enable-cachedb \
+        --enable-dnscrypt
     make install
+    make dohclient
     mv /opt/unbound/etc/unbound/unbound.conf /opt/unbound/etc/unbound/unbound.conf.example
     apk del build-deps
     rm -rf \
