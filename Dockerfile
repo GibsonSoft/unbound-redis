@@ -10,7 +10,8 @@ SHELL ["/bin/ash", "-cexo", "pipefail"]
 
 # Ignore DL3018, we're specifying pkgs via env
 # Ignore SC2086, need to leave out double quotes to bring in deps via env
-# hadolint ignore=DL3018,SC2086
+# Ignore DL3003, switching via WORKDIR explodes image size due additial RUNs
+# hadolint ignore=DL3018,SC2086,DL3003
 RUN <<EOF
     # shellcheck source=/dev/null
     set -a && . ./openssl.env && set +a
@@ -25,11 +26,7 @@ RUN <<EOF
     gpg --batch --verify openssl.tar.gz.asc openssl.tar.gz
     mkdir ./openssl-src
     tar -xzf openssl.tar.gz --strip-components=1 -C ./openssl-src
-EOF
- 
-WORKDIR /tmp/src/openssl-src
-
-RUN <<EOF
+    cd /tmp/src/openssl-src || exit
     ./config \
         --prefix=/opt/openssl \
         --openssldir=/opt/openssl \
@@ -61,7 +58,8 @@ SHELL ["/bin/ash", "-cexo", "pipefail"]
 
 # Ignore DL3018, we're specifying pkgs via env
 # Ignore SC2086, need to leave out double quotes to bring in deps via env
-# hadolint ignore=DL3018,SC2086
+# Ignore DL3003, switching via WORKDIR explodes image size due additial RUNs
+# hadolint ignore=DL3018,SC2086,DL3003
 RUN <<EOF
     # shellcheck source=/dev/null
     set -a && . ./unbound.env && set +a
@@ -72,11 +70,7 @@ RUN <<EOF
     mkdir ./unbound-src
     tar -xzf unbound.tar.gz --strip-components=1 -C ./unbound-src
     rm -f unbound.tar.gz
-EOF
-
-WORKDIR /tmp/src/unbound-src
-
-RUN <<EOF
+    cd /tmp/src/unbound- || exit
     adduser -D -s /dev/null -h /etc _unbound _unbound
     ./configure \
         --disable-dependency-tracking \
