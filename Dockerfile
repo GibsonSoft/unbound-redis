@@ -112,7 +112,8 @@ RUN <<EOF
         --enable-subnet \
         --enable-cachedb \
         --enable-dnscrypt \
-        --disable-flto
+        --disable-flto \
+        --disable-shared
     make install
     mv /opt/unbound/etc/unbound/unbound.conf /opt/unbound/etc/unbound/unbound.conf.example
     rm -rf /opt/unbound/share/man
