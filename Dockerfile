@@ -2,6 +2,7 @@ ARG ALPINE_VERSION=latest
 
 FROM alpine:${ALPINE_VERSION} AS base
 ARG CORE_BUILD_DEPS
+ENV CORE_BUILD_DEPS=${CORE_BUILD_DEPS}
 
 WORKDIR /tmp/src
 SHELL ["/bin/ash", "-cexo", "pipefail"]
@@ -64,7 +65,7 @@ RUN <<EOF
     make -j
     make -j install_sw
     strip /opt/openssl/bin/openssl
-    apk del build-deps ${OPENSSL_BUILD_DEPS}
+    apk del build-deps ${CORE_BUILD_DEPS}
 EOF
 
 FROM base AS unbound
@@ -126,7 +127,7 @@ RUN <<EOF
     strip /opt/unbound/sbin/unbound-control
     strip /opt/unbound/sbin/unbound-host
     rm -rf /opt/unbound/share/man
-    apk del build-deps ${UNBOUND_BUILD_DEPS}
+    apk del build-deps ${CORE_BUILD_DEPS}
 EOF
 
 FROM base AS final
