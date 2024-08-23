@@ -1,5 +1,7 @@
 services:
   unbound:
+    image: gibsonsoft/unbound-full
+    pull_policy: never
     build:
       context: .
       target: final
