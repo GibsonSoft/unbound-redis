@@ -90,8 +90,12 @@ RUN <<EOF
     rm -f unbound.tar.gz
     cd ./unbound-src || exit
     adduser -D -s /dev/null -h /etc _unbound _unbound
+    
+    # Needed to static-compile unbound, per https://github.com/NLnetLabs/unbound/issues/91#issuecomment-1707544943
+    sed -e 's/@LDFLAGS@/@LDFLAGS@ -all-static/' -i Makefile.in
+    LIBS="-lpthread -lm"
+    LDFLAGS="-Wl,-static -static -static-libgcc -no-pie"
     ./configure \
-        --disable-dependency-tracking \
         --prefix=/opt/unbound \
         --with-pthreads \
         --with-username=_unbound \
@@ -106,15 +110,20 @@ RUN <<EOF
         --enable-cachedb \
         --enable-dnscrypt \
         --disable-flto \
-        --disable-shared
-    make install
+        --disable-shared \
+        --enable-fully-static
+    make -j install
     mv /opt/unbound/etc/unbound/unbound.conf /opt/unbound/etc/unbound/unbound.conf.example
+    strip /opt/unbound/sbin/unbound
+    strip /opt/unbound/sbin/unbound-anchor
+    strip /opt/unbound/sbin/unbound-checkconf
+    strip /opt/unbound/sbin/unbound-control
+    strip /opt/unbound/sbin/unbound-host
     rm -rf /opt/unbound/share/man
 EOF
 
 FROM base AS final
 
-COPY --from=openssl /opt/openssl /opt/openssl
 COPY --from=unbound /opt/unbound /opt/unbound
 COPY data/ /
 
