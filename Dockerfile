@@ -31,7 +31,6 @@ ARG OPENSSL_DOWNLOAD_URL=${OPENSSL_SOURCE}/${OPENSSL_SOURCE_FILE}
 
 LABEL maintainer="Matthew Vance"
 
-WORKDIR /tmp/src
 SHELL ["/bin/ash", "-cexo", "pipefail"]
 
 # Ignore DL3020, using ADD to grab remote file. Cannot do with COPY
@@ -55,7 +54,7 @@ RUN <<EOF
     mkdir ./openssl-src
     tar -xzf openssl.tar.gz --strip-components=1 -C ./openssl-src
     rm -f openssl.tar.gz openssl.tar.gz.asc
-    cd /tmp/src/openssl-src || exit
+    cd ./openssl-src || exit
     ./config \
         --prefix=/opt/openssl \
         --openssldir=/opt/openssl \
@@ -81,7 +80,6 @@ ARG UNBOUND_DOWNLOAD_URL=${UNBOUND_SOURCE}/${UNBOUND_SOURCE_FILE}
 
 LABEL maintainer="Matthew Vance"
 
-WORKDIR /tmp/src
 SHELL ["/bin/ash", "-cexo", "pipefail"]
 
 COPY --from=openssl /opt/openssl /opt/openssl
@@ -97,7 +95,7 @@ RUN <<EOF
     mkdir ./unbound-src
     tar -xzf unbound.tar.gz --strip-components=1 -C ./unbound-src
     rm -f unbound.tar.gz
-    cd /tmp/src/unbound-src || exit
+    cd ./unbound-src || exit
     adduser -D -s /dev/null -h /etc _unbound _unbound
     ./configure \
         --disable-dependency-tracking \
