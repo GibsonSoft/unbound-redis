@@ -53,18 +53,15 @@ RUN <<EOF
     tar -xzf openssl.tar.gz --strip-components=1 -C ./openssl-src
     rm -f openssl.tar.gz openssl.tar.gz.asc
     cd ./openssl-src || exit
-    ./config \
+    ./Configure \
         --prefix=/opt/openssl \
         --openssldir=/opt/openssl \
-        no-weak-ssl-ciphers \
         no-ssl3 \
-        no-shared \
         enable-ec_nistp_64_gcc_128 \
-        -DOPENSSL_NO_HEARTBEATS \
-        -fstack-protector-strong
-    make depend
-    nproc | xargs -I % make -j%
-    make install_sw
+        -static
+    make -j
+    make -j install_sw
+    strip /opt/openssl/bin/openssl
 EOF
 
 FROM base AS unbound
