@@ -7,7 +7,7 @@ services:
       target: final
       args:
         ALPINE_VERSION: 3.20.2
-        BUILD_DEPS: "build-base linux-headers curl dirmngr libidn-dev openssl-dev perl protobuf-c-dev expat-dev libevent-dev libsodium-dev nghttps2-dev flex bison hiredis-dev gpg"
+        BUILD_DEPS: "build-base linux-headers curl dirmngr libidn-dev openssl-dev perl protobuf-c-dev expat-dev libevent-dev libsodium-dev nghttp2-dev flex bison hiredis-dev gpg"
         RUNTIME_DEPS: "drill bind-tools libexpat libevent nghttp2-libs protobuf-c libsodium hiredis"
         
         OPENSSL_OPGP_1: EFC0A467D613CB83C7ED6D30D894E2CE8B3D79F5 # OpenSSL OMC
