@@ -12,8 +12,7 @@ SHELL ["/bin/ash", "-cexo", "pipefail"]
 # hadolint ignore=DL3018,SC2086
 RUN <<EOF
     apk update
-    apk add --no-cache --virtual build-deps ${BUILD_DEPS}
-    apk add --no-cache ${RUNTIME_DEPS}
+    apk add --no-cache ${CORE_BUILD_DEPS}
 EOF
 
 FROM base AS openssl
@@ -37,9 +36,12 @@ ADD --checksum=sha256:${OPENSSL_SHA256} ${OPENSSL_DOWNLOAD_URL} openssl.tar.gz
 # hadolint ignore=DL3020
 ADD ${OPENSSL_DOWNLOAD_URL}.asc openssl.tar.gz.asc
 
+# Ignore DL3018, we're specifying pkgs via env
+# Ignore SC2086, need to leave out double quotes to bring in deps via env
 # Ignore DL3003, only need to cd for this RUN
-# hadolint ignore=DL3003
+# hadolint ignore=DL3003,DL3018,SC2086
 RUN <<EOF
+    apk add --no-cache --virtual build-deps ${OPENSSL_BUILD_DEPS}
     GNUPGHOME="$(mktemp -d)"
     export GNUPGHOME
     gpg --no-tty --keyserver keyserver.ubuntu.com --recv-keys \
@@ -62,6 +64,7 @@ RUN <<EOF
     make -j
     make -j install_sw
     strip /opt/openssl/bin/openssl
+    apk del build-deps ${OPENSSL_BUILD_DEPS}
 EOF
 
 FROM base AS unbound
@@ -81,11 +84,13 @@ COPY --from=openssl /opt/openssl /opt/openssl
 # hadolint ignore=DL3020
 ADD --checksum=sha256:${UNBOUND_SHA256} ${UNBOUND_DOWNLOAD_URL} unbound.tar.gz
 
+# Ignore DL3018, we're specifying pkgs via env
+# Ignore SC2086, need to leave out double quotes to bring in deps via env
 # Ignore DL3003, only need to cd for this RUN
 # Ignore SC2034, Needed to static-compile unbound, per https://github.com/NLnetLabs/unbound/issues/91#issuecomment-1707544943
-# hadolint ignore=DL3003,SC2034
+# hadolint ignore=DL3018,SC2086,DL3003,SC2034
 RUN <<EOF
-    # shellcheck source=/dev/null
+    apk add --no-cache --virtual build-deps ${UNBOUND_BUILD_DEPS}
     mkdir ./unbound-src
     tar -xzf unbound.tar.gz --strip-components=1 -C ./unbound-src
     rm -f unbound.tar.gz
@@ -121,6 +126,7 @@ RUN <<EOF
     strip /opt/unbound/sbin/unbound-control
     strip /opt/unbound/sbin/unbound-host
     rm -rf /opt/unbound/share/man
+    apk del build-deps ${UNBOUND_BUILD_DEPS}
 EOF
 
 FROM base AS final
@@ -128,9 +134,13 @@ FROM base AS final
 COPY --from=unbound /opt/unbound /opt/unbound
 COPY data/ /
 
+# Ignore DL3018, we're specifying pkgs via env
+# Ignore SC2086, need to leave out double quotes to bring in deps via env
+# hadolint ignore=DL3018,SC2086
 RUN <<EOF
     chmod +x /unbound.sh
-    apk del build-deps
+    apk del ${CORE_BUILD_DEPS}
+    apk add --no-cache ${RUNTIME_DEPS}
     adduser -D -s /dev/null -h /etc _unbound _unbound
 EOF
 

@@ -7,14 +7,18 @@ services:
       target: final
       args:
         ALPINE_VERSION: 3.20.2
-        BUILD_DEPS: >
+        CORE_BUILD_DEPS: >
           gcc
           libgcc
           make
           musl-dev
           linux-headers
           perl
+
+        OPENSSL_BUILD_DEPS: >
           gnupg
+        
+        UNBOUND_BUILD_DEPS: >
           protobuf-c-dev
           expat-dev
           expat-static
