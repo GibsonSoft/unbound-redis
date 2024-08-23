@@ -8,13 +8,15 @@ services:
       args:
         ALPINE_VERSION: 3.20.2
         BUILD_DEPS: >
-          build-base
+          gcc
+          libgcc
+          make
+          musl-dev
           linux-headers
-          curl
-          dirmngr
+          perl
+          gnupg
           libidn-dev
           openssl-dev
-          perl
           protobuf-c-dev
           expat-dev
           libevent-dev
@@ -23,7 +25,6 @@ services:
           flex
           bison
           hiredis-dev
-          gnupg
           
         RUNTIME_DEPS: >
           drill
