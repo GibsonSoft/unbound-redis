@@ -82,7 +82,8 @@ COPY --from=openssl /opt/openssl /opt/openssl
 ADD --checksum=sha256:${UNBOUND_SHA256} ${UNBOUND_DOWNLOAD_URL} unbound.tar.gz
 
 # Ignore DL3003, only need to cd for this RUN
-# hadolint ignore=DL3003
+# Ignore SC2034, Needed to static-compile unbound, per https://github.com/NLnetLabs/unbound/issues/91#issuecomment-1707544943
+# hadolint ignore=DL3003,SC2034
 RUN <<EOF
     # shellcheck source=/dev/null
     mkdir ./unbound-src
