@@ -1,9 +1,8 @@
 ARG ALPINE_VERSION=latest
 
-FROM alpine:${ALPINE_VERSION} as base
-ARG OPENSSL_BUILD_DEPS
-ARG UNBOUND_BUILD_DEPS
-ARG UNBOUND_RUNTIME_DEPS
+FROM alpine:${ALPINE_VERSION} AS base
+ARG BUILD_DEPS
+ARG RUNTIME_DEPS
 
 WORKDIR /tmp/src
 SHELL ["/bin/ash", "-cexo", "pipefail"]
@@ -69,10 +68,6 @@ RUN <<EOF
     make depend
     nproc | xargs -I % make -j%
     make install_sw
-    rm -rf \
-        /tmp/* \
-        /var/tmp/* \
-        /var/lib/apt/lists/*
 EOF
 
 FROM base AS unbound
@@ -121,14 +116,10 @@ RUN <<EOF
         --enable-dnscrypt
     make install
     mv /opt/unbound/etc/unbound/unbound.conf /opt/unbound/etc/unbound/unbound.conf.example
-    rm -rf \
-        /opt/unbound/share/man \
-        /tmp/* \
-        /var/tmp/* \
-        /var/lib/apt/lists/*
+    rm -rf /opt/unbound/share/man
 EOF
 
-FROM base as final
+FROM base AS final
 
 COPY --from=openssl /opt/openssl /opt/openssl
 COPY --from=unbound /opt/unbound /opt/unbound
