@@ -18,8 +18,8 @@ services:
         OPENSSL_SOURCE: https://www.openssl.org/source/
         OPENSSL_VERSION: 3.3.1
 
-        UNBOUND_BUILD_DEPS: "alpine-sdk linux-headers protobuf-c-dev expat-dev libevent-dev libsodium-dev nghttp2-dev flex bison curl"
-        UNBOUND_RUNTIME_DEPS: "drill bind-tools libexpat libevent nghttp2-libs protobuf-c perl libsodium"
+        UNBOUND_BUILD_DEPS: "alpine-sdk linux-headers protobuf-c-dev expat-dev libevent-dev libsodium-dev nghttp2-dev flex bison curl hiredis-dev"
+        UNBOUND_RUNTIME_DEPS: "drill bind-tools libexpat libevent nghttp2-libs protobuf-c perl libsodium hiredis"
         UNBOUND_SHA256: e7dca7d6b0f81bdfa6fa64ebf1053b5a999a5ae9278a87ef182425067ea14521
         UNBOUND_SOURCE: https://nlnetlabs.nl/downloads/unbound/
         UNBOUND_VERSION: 1.21.0
