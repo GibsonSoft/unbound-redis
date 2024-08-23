@@ -1,10 +1,26 @@
-ARG ALPINE_IMAGE_VERSION=3.20.2
+ARG ALPINE_VERSION
+ARG OPENSSL_BUILD_DEPS
+ARG OPENSSL_OPGP_1
+ARG OPENSSL_OPGP_2
+ARG OPENSSL_OPGP_3
+ARG OPENSSL_OPGP_4
+ARG OPENSSL_OPGP_5
+ARG OPENSSL_SHA256
+ARG OPENSSL_SOURCE
+ARG OPENSSL_VERSION 
+ARG UNBOUND_BUILD_DEPS
+ARG UNBOUND_RUNTIME_DEPS
+ARG UNBOUND_SHA256
+ARG UNBOUND_SOURCE
+ARG UNBOUND_VERSION
 
-FROM alpine:$ALPINE_IMAGE_VERSION AS openssl
+ARG OPENSSL_SOURCE_FILE=openssl-${OPENSSL_VERSION}.tar.gz
+ARG OPENSSL_DOWNLOAD_URL=${OPENSSL_SOURCE}/${OPENSSL_SOURCE_FILE}
+
+FROM alpine:$ALPINE_VERSION AS openssl
 LABEL maintainer="Matthew Vance"
 
 WORKDIR /tmp/src
-COPY env/openssl.env openssl.env
 
 SHELL ["/bin/ash", "-cexo", "pipefail"]
 
@@ -14,15 +30,19 @@ SHELL ["/bin/ash", "-cexo", "pipefail"]
 # hadolint ignore=DL3018,SC2086,DL3003
 RUN <<EOF
     # shellcheck source=/dev/null
-    set -a && . ./openssl.env && set +a
     apk update
-    apk add --no-cache --virtual build-deps ${BUILD_DEPS_OPENSSL}
-    curl -L "${SOURCE_OPENSSL}""${VERSION_OPENSSL}".tar.gz -o openssl.tar.gz
-    echo "${SHA256_OPENSSL} ./openssl.tar.gz" | sha256sum -c -
-    curl -L "${SOURCE_OPENSSL}""${VERSION_OPENSSL}".tar.gz.asc -o openssl.tar.gz.asc
+    apk add --no-cache --virtual build-deps ${OPENSSL_BUILD_DEPS}
+    curl -L "${OPENSSL_DOWNLOAD_URL}" -o openssl.tar.gz
+    echo "${OPENSSL_SHA256} ./openssl.tar.gz" | sha256sum -c -
+    curl -L "${OPENSSL_DOWNLOAD_URL}.asc" -o openssl.tar.gz.asc
     GNUPGHOME="$(mktemp -d)"
     export GNUPGHOME
-    gpg --no-tty --keyserver keyserver.ubuntu.com --recv-keys "${OPGP_OPENSSL_1}" "${OPGP_OPENSSL_2}" "${OPGP_OPENSSL_3}" "${OPGP_OPENSSL_4}" "${OPGP_OPENSSL_5}"
+    gpg --no-tty --keyserver keyserver.ubuntu.com --recv-keys \
+        "${OPENSSL_OPGP_1}" \
+        "${OPENSSL_OPGP_2}" \
+        "${OPENSSL_OPGP_3}" \
+        "${OPENSSL_OPGP_4}" \
+        "${OPENSSL_OPGP_5}"
     gpg --batch --verify openssl.tar.gz.asc openssl.tar.gz
     mkdir ./openssl-src
     tar -xzf openssl.tar.gz --strip-components=1 -C ./openssl-src
@@ -46,11 +66,10 @@ RUN <<EOF
         /var/lib/apt/lists/*
 EOF
 
-FROM alpine:$ALPINE_IMAGE_VERSION AS unbound
+FROM alpine:$ALPINE_VERSION AS unbound
 LABEL maintainer="Matthew Vance"
 
 WORKDIR /tmp/src
-COPY env/unbound.env unbound.env
 
 COPY --from=openssl /opt/openssl /opt/openssl
 
@@ -62,11 +81,10 @@ SHELL ["/bin/ash", "-cexo", "pipefail"]
 # hadolint ignore=DL3018,SC2086,DL3003
 RUN <<EOF
     # shellcheck source=/dev/null
-    set -a && . ./unbound.env && set +a
-    apk add --no-cache --virtual build-deps ${BUILD_DEPS_UNBOUND} 
-    apk add --no-cache ${RUNTIME_DEPS_UNBOUND}
-    curl -sSL $UNBOUND_DOWNLOAD_URL -o unbound.tar.gz
-    echo "${UNBOUND_SHA256} *unbound.tar.gz" | sha256sum -c -
+    apk add --no-cache --virtual build-deps ${UNBOUND_BUILD_DEPS} 
+    apk add --no-cache ${UNBOUND_RUNTIME_DEPS}
+    curl -sSL "${UNBOUND_DOWNLOAD_URL}" -o unbound.tar.gz
+    echo "${UNBOUND_SHA256} ./unbound.tar.gz" | sha256sum -c -
     mkdir ./unbound-src
     tar -xzf unbound.tar.gz --strip-components=1 -C ./unbound-src
     rm -f unbound.tar.gz
@@ -103,7 +121,7 @@ RUN chmod +x /unbound.sh
 
 WORKDIR /opt/unbound/
 
-ENV PATH /opt/unbound/sbin:"$PATH"
+ENV PATH=/opt/unbound/sbin:"$PATH"
 
 LABEL org.opencontainers.image.version=${UNBOUND_VERSION} \
       org.opencontainers.image.title="mvance/unbound" \

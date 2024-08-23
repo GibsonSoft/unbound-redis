@@ -1,0 +1,21 @@
+unbound:
+  build:
+    context: .
+    args:
+      ALPINE_VERSION: 3.20.2
+      
+      OPENSSL_BUILD_DEPS: "alpine-sdk curl dirmngr gnupg libidn-dev openssl-dev perl linux-headers"
+      OPENSSL_OPGP_1: EFC0A467D613CB83C7ED6D30D894E2CE8B3D79F5 # OpenSSL OMC
+      OPENSSL_OPGP_2: 7953AC1FBC3DC8B3B292393ED5E9E43F7DF9EE8C # Richard Levitte
+      OPENSSL_OPGP_3: 8657ABB260F056B1E5190839D9C4D26D0E604491 # Matt Caswell
+      OPENSSL_OPGP_4: B7C1C14360F353A36862E4D5231C84CDDCC69C45 # Paul Dale
+      OPENSSL_OPGP_5: A21FAB74B0088AA361152586B8EF1A6BA9DA2D5C # Tomas Mraz
+      OPENSSL_SHA256: 777cd596284c883375a2a7a11bf5d2786fc5413255efab20c50d6ffe6d020b7e
+      OPENSSL_SOURCE: https://www.openssl.org/source/
+      OPENSSL_VERSION: 3.3.1
+
+      UNBOUND_BUILD_DEPS: "alpine-sdk linux-headers protobuf-c-dev expat-dev libevent-dev libsodium-dev nghttp2-dev flex bison curl"
+      UNBOUND_RUNTIME_DEPS: "drill bind-tools libexpat libevent nghttp2-libs protobuf-c perl libsodium"
+      UNBOUND_SHA256: e7dca7d6b0f81bdfa6fa64ebf1053b5a999a5ae9278a87ef182425067ea14521
+      UNBOUND_SOURCE: https://nlnetlabs.nl/downloads/unbound/
+      UNBOUND_VERSION: 1.21.0
