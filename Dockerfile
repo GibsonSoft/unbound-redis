@@ -154,11 +154,11 @@ RUN <<EOF
     LDFLAGS="-Wl,-static -static -static-libgcc -no-pie"
     ./configure \
         --prefix=/opt/ldns \
-        --with-pthreads \
         --with-ssl=/opt/openssl \
         --with-drill \
         --disable-shared \
-        --enable-fully-static
+        --enable-static
+    make -j
     make -j install
     apk del build-deps ${CORE_BUILD_DEPS}
 EOF
@@ -167,6 +167,8 @@ FROM base AS final
 ARG RUNTIME_DEPS
 
 COPY --from=unbound /opt/unbound /opt/unbound
+COPY --from=ldns /opt/ldns/bin/drill /opt/ldns/bin/drill
+
 COPY data/ /
 
 # Ignore DL3018, we're specifying pkgs via env
@@ -175,13 +177,12 @@ COPY data/ /
 RUN <<EOF
     chmod +x /unbound.sh
     apk del ${CORE_BUILD_DEPS}
-    apk add --no-cache ${RUNTIME_DEPS}
     adduser -D -s /dev/null -h /etc _unbound _unbound
 EOF
 
 WORKDIR /opt/unbound/
 
-ENV PATH=/opt/unbound/sbin:"$PATH"
+ENV PATH=/opt/unbound/sbin:/opt/ldns/bin:"$PATH"
 
 LABEL org.opencontainers.image.version=${UNBOUND_VERSION} \
       org.opencontainers.image.title="mvance/unbound" \

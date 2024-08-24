@@ -34,9 +34,6 @@ services:
           hiredis-dev
           flex
           bison
-          
-        RUNTIME_DEPS: >
-          drill
 
         # In order of appearance:
         # OpenSSL OMC
