@@ -42,9 +42,9 @@ ADD ${OPENSSL_DOWNLOAD_URL}.asc openssl.tar.gz.asc
 # Ignore DL3003, only need to cd for this RUN
 # hadolint ignore=DL3003,DL3018,SC2086
 RUN <<EOF
-    apk add --no-cache --virtual build-deps ${OPENSSL_BUILD_DEPS}
     GNUPGHOME="$(mktemp -d)"
     export GNUPGHOME
+    apk add --no-cache --virtual build-deps ${OPENSSL_BUILD_DEPS}
     gpg --no-tty --keyserver keyserver.ubuntu.com --recv-keys \
         "${OPENSSL_OPGP_1}" \
         "${OPENSSL_OPGP_2}" \
@@ -91,14 +91,14 @@ ADD --checksum=sha256:${UNBOUND_SHA256} ${UNBOUND_DOWNLOAD_URL} unbound.tar.gz
 # Ignore SC2034, Needed to static-compile unbound, per https://github.com/NLnetLabs/unbound/issues/91#issuecomment-1707544943
 # hadolint ignore=DL3018,SC2086,DL3003,SC2034
 RUN <<EOF
-    apk add --no-cache --virtual build-deps ${UNBOUND_BUILD_DEPS}
     mkdir ./unbound-src
+    apk add --no-cache --virtual build-deps ${UNBOUND_BUILD_DEPS}
     tar -xzf unbound.tar.gz --strip-components=1 -C ./unbound-src
     rm -f unbound.tar.gz
     cd ./unbound-src || exit
     adduser -D -s /dev/null -h /etc _unbound _unbound
     
-    # Needed to static-compile unbound, per https://github.com/NLnetLabs/unbound/issues/91#issuecomment-1707544943
+#   Needed to static-compile unbound, per https://github.com/NLnetLabs/unbound/issues/91#issuecomment-1707544943
     sed -e 's/@LDFLAGS@/@LDFLAGS@ -all-static/' -i Makefile.in
     LIBS="-lpthread -lm"
     LDFLAGS="-Wl,-static -static -static-libgcc -no-pie"
