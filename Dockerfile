@@ -164,38 +164,67 @@ RUN <<EOF
     apk del build-deps ${CORE_BUILD_DEPS}
 EOF
 
-FROM base AS final
-ARG RUNTIME_DEPS
+FROM scratch as final
+WORKDIR /
+SHELL ["/bin/sh", "-cexo", "pipefail"]
 
-COPY --from=unbound /opt/unbound /opt/unbound
-COPY --from=ldns /opt/ldns/bin/drill /opt/ldns/bin/drill
-
+COPY --from=base /bin/ /bin/
+COPY --from=base /usr/bin/ /usr/bin/
+COPY --from=base /lib/ld-musl*.so.1 /lib/
+COPY --from=base /etc/ssl/certs/ /etc/ssl/certs/
+COPY --from=ldns /opt/ldns/bin/drill /opt/drill/bin/drill
+COPY --from=unbound /opt/unbound/sbin/ /opt/unbound/sbin/
+COPY --from=unbound /opt/unbound/etc/ /opt/unbound/etc/
+COPY --from=unbound /etc/passwd /etc/group /etc/
 COPY data/ /
 
-# Ignore DL3018, we're specifying pkgs via env
-# Ignore SC2086, need to leave out double quotes to bring in deps via env
-# hadolint ignore=DL3018,SC2086
-RUN <<EOF
-    chmod +x /unbound.sh
-    apk del ${CORE_BUILD_DEPS}
-    adduser -D -s /dev/null -h /etc _unbound _unbound
-EOF
+ENV PATH=/opt/unbound/sbin:/opt/drill/bin:/bin:/usr/bin
 
-WORKDIR /opt/unbound/
-
-ENV PATH=/opt/unbound/sbin:/opt/ldns/bin:"$PATH"
-
-LABEL org.opencontainers.image.version=${UNBOUND_VERSION} \
-      org.opencontainers.image.title="mvance/unbound" \
-      org.opencontainers.image.description="a validating, recursive, and caching DNS resolver" \
-      org.opencontainers.image.url="https://github.com/MatthewVance/unbound-docker" \
-      org.opencontainers.image.vendor="Matthew Vance" \
-      org.opencontainers.image.licenses="MIT" \
-      org.opencontainers.image.source="https://github.com/MatthewVance/unbound-docker"
+RUN chmod +x /unbound.sh
 
 EXPOSE 53/tcp
 EXPOSE 53/udp
 
 HEALTHCHECK --interval=30s --timeout=30s --start-period=10s --retries=3 CMD drill @127.0.0.1 cloudflare.com || exit 1
-
 CMD ["/unbound.sh"]
+
+
+
+
+
+
+# FROM base AS final2
+# ARG RUNTIME_DEPS
+
+# COPY --from=unbound /opt/unbound /opt/unbound
+# COPY --from=ldns /opt/ldns/bin/drill /opt/ldns/bin/drill
+
+# COPY data/ /
+
+# Ignore DL3018, we're specifying pkgs via env
+# Ignore SC2086, need to leave out double quotes to bring in deps via env
+# hadolint ignore=DL3018,SC2086
+# RUN <<EOF
+#     chmod +x /unbound.sh
+#     apk del ${CORE_BUILD_DEPS}
+#     adduser -D -s /dev/null -h /etc _unbound _unbound
+# EOF
+
+# WORKDIR /opt/unbound/
+
+# ENV PATH=/opt/unbound/sbin:/opt/ldns/bin:"$PATH"
+
+# LABEL org.opencontainers.image.version=${UNBOUND_VERSION} \
+#       org.opencontainers.image.title="mvance/unbound" \
+#       org.opencontainers.image.description="a validating, recursive, and caching DNS resolver" \
+#       org.opencontainers.image.url="https://github.com/MatthewVance/unbound-docker" \
+#       org.opencontainers.image.vendor="Matthew Vance" \
+#       org.opencontainers.image.licenses="MIT" \
+#       org.opencontainers.image.source="https://github.com/MatthewVance/unbound-docker"
+
+# EXPOSE 53/tcp
+# EXPOSE 53/udp
+
+# HEALTHCHECK --interval=30s --timeout=30s --start-period=10s --retries=3 CMD drill @127.0.0.1 cloudflare.com || exit 1
+
+# CMD ["/unbound.sh"]

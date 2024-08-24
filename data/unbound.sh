@@ -1,4 +1,4 @@
-#!/bin/ash
+#!/bin/bash
 
 reserved=12582912
 availableMemory=$((1024 * $( (grep MemAvailable /proc/meminfo || grep MemTotal /proc/meminfo) | sed 's/[^0-9]//g' ) ))
