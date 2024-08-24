@@ -121,6 +121,48 @@ RUN <<EOF
     apk del build-deps ${CORE_BUILD_DEPS}
 EOF
 
+FROM base AS ldns
+ARG LDNS_BUILD_DEPS
+ARG LDNS_SHA256
+ARG LDNS_SOURCE
+ARG LDNS_VERSION
+
+ARG LDNS_SOURCE_FILE=ldns-${LDNS_VERSION}.tar.gz
+ARG LDNS_DOWNLOAD_URL=${LDNS_SOURCE}/${LDNS_SOURCE_FILE}
+
+COPY --from=openssl /opt/openssl /opt/openssl
+
+# Ignore DL3020, using ADD to grab remote file. Cannot do with COPY
+# hadolint ignore=DL3020
+ADD --checksum=sha256:${LDNS_SHA256} ${LDNS_DOWNLOAD_URL} ldns.tar.gz
+
+# Ignore DL3018, we're specifying pkgs via env
+# Ignore SC2086, need to leave out double quotes to bring in deps via env
+# Ignore DL3003, only need to cd for this RUN
+# Ignore SC2034, Needed to static-compile unbound, per https://github.com/NLnetLabs/unbound/issues/91#issuecomment-1707544943
+# hadolint ignore=DL3018,SC2086,DL3003,SC2034
+RUN <<EOF
+    mkdir ./ldns-src
+    apk add --no-cache --virtual build-deps ${LDNS_BUILD_DEPS}
+    tar -xzf ldns.tar.gz --strip-components=1 -C ./ldns-src
+    rm -f ldns.tar.gz
+    cd ./ldns-src || exit
+    
+#   Needed to static-compile LDNS, per https://github.com/NLnetLabs/unbound/issues/91#issuecomment-1707544943
+    sed -e 's/@LDFLAGS@/@LDFLAGS@ -all-static/' -i Makefile.in
+    LIBS="-lpthread -lm"
+    LDFLAGS="-Wl,-static -static -static-libgcc -no-pie"
+    ./configure \
+        --prefix=/opt/ldns \
+        --with-pthreads \
+        --with-ssl=/opt/openssl \
+        --with-drill \
+        --disable-shared \
+        --enable-fully-static
+    make -j install
+    apk del build-deps ${CORE_BUILD_DEPS}
+EOF
+
 FROM base AS final
 ARG RUNTIME_DEPS
 

@@ -14,6 +14,9 @@ services:
           musl-dev
           linux-headers
           perl
+        
+        LDNS_BUILD_DEPS: >
+          libtool
 
         OPENSSL_BUILD_DEPS: >
           gnupg
@@ -51,6 +54,10 @@ services:
         OPENSSL_SHA256: 777cd596284c883375a2a7a11bf5d2786fc5413255efab20c50d6ffe6d020b7e
         OPENSSL_SOURCE: https://www.openssl.org/source/
         OPENSSL_VERSION: 3.3.1
+
+        LDNS_SHA256: c3f72dd1036b2907e3a56e6acf9dfb2e551256b3c1bbd9787942deeeb70e7860
+        LDNS_SOURCE: https://nlnetlabs.nl/downloads/ldns/
+        LDNS_VERSION: 1.8.3
 
         UNBOUND_SHA256: e7dca7d6b0f81bdfa6fa64ebf1053b5a999a5ae9278a87ef182425067ea14521
         UNBOUND_SOURCE: https://nlnetlabs.nl/downloads/unbound/
