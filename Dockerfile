@@ -17,11 +17,7 @@ EOF
 
 FROM base AS openssl
 ARG OPENSSL_BUILD_DEPS
-ARG OPENSSL_OPGP_1
-ARG OPENSSL_OPGP_2
-ARG OPENSSL_OPGP_3
-ARG OPENSSL_OPGP_4
-ARG OPENSSL_OPGP_5
+ARG OPENSSL_OPGP_KEYS
 ARG OPENSSL_SHA256
 ARG OPENSSL_SOURCE
 ARG OPENSSL_VERSION 
@@ -45,12 +41,7 @@ RUN <<EOF
     GNUPGHOME="$(mktemp -d)"
     export GNUPGHOME
     apk add --no-cache --virtual build-deps ${OPENSSL_BUILD_DEPS}
-    gpg --no-tty --keyserver keyserver.ubuntu.com --recv-keys \
-        "${OPENSSL_OPGP_1}" \
-        "${OPENSSL_OPGP_2}" \
-        "${OPENSSL_OPGP_3}" \
-        "${OPENSSL_OPGP_4}" \
-        "${OPENSSL_OPGP_5}"
+    gpg --no-tty --keyserver keyserver.ubuntu.com --recv-keys ${OPENSSL_OPGP_KEYS}
     gpg --batch --verify openssl.tar.gz.asc openssl.tar.gz
     mkdir ./openssl-src
     tar -xzf openssl.tar.gz --strip-components=1 -C ./openssl-src
