@@ -160,6 +160,7 @@ RUN <<EOF
         --enable-static
     make -j
     make -j install
+    strip /opt/ldns/bin/drill
     apk del build-deps ${CORE_BUILD_DEPS}
 EOF
 

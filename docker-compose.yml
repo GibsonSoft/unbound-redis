@@ -8,12 +8,14 @@ services:
       args:
         ALPINE_VERSION: 3.20.2
         CORE_BUILD_DEPS: >
+          binutils
           gcc
           libgcc
           make
           musl-dev
           linux-headers
           perl
+          file
         
         LDNS_BUILD_DEPS: >
           libtool
