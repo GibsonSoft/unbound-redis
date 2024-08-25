@@ -1,34 +1,32 @@
 #!/bin/sh
 
-reserved=12582912
-availableMemory=$((1024 * $( (grep MemAvailable /proc/meminfo || grep MemTotal /proc/meminfo) | sed 's/[^0-9]//g' ) ))
-memoryLimit=$availableMemory
-[ -r /sys/fs/cgroup/memory/memory.limit_in_bytes ] && memoryLimit=$(cat /sys/fs/cgroup/memory/memory.limit_in_bytes | sed 's/[^0-9]//g')
-[[ ! -z $memoryLimit && $memoryLimit -gt 0 && $memoryLimit -lt $availableMemory ]] && availableMemory=$memoryLimit
-if [ $availableMemory -le $(($reserved * 2)) ]; then
-    echo "Not enough memory" >&2
-    exit 1
-fi
-availableMemory=$(($availableMemory - $reserved))
-rr_cache_size=$(($availableMemory / 3))
-# Use roughly twice as much rrset cache memory as msg cache memory
-msg_cache_size=$(($rr_cache_size / 2))
-nproc=$(nproc)
-export nproc
-if [ "$nproc" -gt 1 ]; then
-    threads=$((nproc - 1))
-    # Calculate base 2 log of the number of processors
-    nproc_log=$(bc -l l(${nproc}) / l(2))
+# Performance tuning before final cleanup and run
+# See: https://unbound.docs.nlnetlabs.nl/en/latest/topics/core/performance.html
 
-    # Round the logarithm to an integer
-    rounded_nproc_log="$(printf '%.*f\n' 0 "$nproc_log")"
+
+totalMemory=$((1024 * $( awk '/^MemTotal/ { print $2 }' /proc/meminfo ) ))
+
+# Limit available memory for unbound to 1/4 of total system available
+availableMemory=$(($totalMemory / 4))
+
+# Use roughly twice as much rrset cache memory as msg cache memory
+rr_cache_size=$(($availableMemory / 3))
+msg_cache_size=$(($rr_cache_size / 2))
+
+# Use # of physical CPUs to calculate threads and slabs
+nproc=$(awk '/^cpu cores/ { print $4 }' /proc/cpuinfo | uniq)
+if [ "$nproc" -gt 1 ]; then
+    threads=$nproc
+    
+    # Calculate base 2 log of the number of processors
+    nproc_log=$(printf '%.0f\n' $(echo "l(${nproc}) / l(2)" | bc -l))
 
     # Set *-slabs to a power of 2 close to the num-threads value.
     # This reduces lock contention.
-    slabs=$(( 2 ** rounded_nproc_log ))
+    slabs=$(( 2 ** nproc_log ))
 else
     threads=1
-    slabs=4
+    slabs=2
 fi
 
 if [ ! -f /opt/unbound/etc/unbound/unbound.conf ]; then
