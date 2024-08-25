@@ -5,7 +5,7 @@ ARG CORE_BUILD_DEPS
 ENV CORE_BUILD_DEPS=${CORE_BUILD_DEPS}
 
 WORKDIR /tmp/src
-SHELL ["/bin/ash", "-cexo", "pipefail"]
+SHELL ["/bin/sh", "-cexo", "pipefail"]
 
 # Ignore DL3018, we're specifying pkgs via env
 # Ignore SC2086, need to leave out double quotes to bring in deps via env
