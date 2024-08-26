@@ -174,13 +174,17 @@ COPY --from=base /lib/ld-musl*.so.1 /lib/
 COPY --from=base /etc/ssl/certs/ /etc/ssl/certs/
 COPY --from=ldns /opt/ldns/bin/drill /opt/drill/bin/drill
 COPY --from=unbound /opt/unbound/sbin/ /opt/unbound/sbin/
-COPY --from=unbound /opt/unbound/etc/ /opt/unbound/etc/
+COPY --from=unbound /opt/unbound/etc/unbound/ /etc/unbound/
 COPY --from=unbound /etc/passwd /etc/group /etc/
 COPY data/ /
 
 ENV PATH=/opt/unbound/sbin:/opt/drill/bin:/bin:/usr/bin
 
-RUN chmod +x /unbound.sh
+RUN <<EOF
+    sed -i -e "s/\/opt\/unbound//" "/etc/unbound/unbound.conf.example"
+    unbound-anchor -a /etc/unbound/root.key
+    chmod +x /unbound.sh
+EOF
 
 EXPOSE 53/tcp
 EXPOSE 53/udp

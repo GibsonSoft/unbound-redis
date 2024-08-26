@@ -29,20 +29,13 @@ else
     slabs=2
 fi
 
-if [ ! -f /opt/unbound/etc/unbound/unbound.conf ]; then
+if [ ! -f /etc/unbound/unbound.conf ]; then
     sed \
         -e "s/@MSG_CACHE_SIZE@/${msg_cache_size}/" \
         -e "s/@RR_CACHE_SIZE@/${rr_cache_size}/" \
         -e "s/@THREADS@/${threads}/" \
         -e "s/@SLABS@/${slabs}/" \
-        /opt/unbound/etc/unbound/unbound.conf.template > /opt/unbound/etc/unbound/unbound.conf
+        /etc/unbound/unbound.conf.template > /etc/unbound/unbound.conf
 fi
 
-mkdir -p /opt/unbound/etc/unbound/dev && \
-cp -a /dev/random /dev/urandom /dev/null /opt/unbound/etc/unbound/dev/
-
-mkdir -p -m 700 /opt/unbound/etc/unbound/var && \
-chown _unbound:_unbound /opt/unbound/etc/unbound/var && \
-/opt/unbound/sbin/unbound-anchor -a /opt/unbound/etc/unbound/var/root.key
-
-exec /opt/unbound/sbin/unbound -d -c /opt/unbound/etc/unbound/unbound.conf
+exec /opt/unbound/sbin/unbound -d -c /etc/unbound/unbound.conf
