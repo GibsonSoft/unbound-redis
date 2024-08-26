@@ -178,11 +178,27 @@ COPY --from=unbound /opt/unbound/etc/unbound/ /etc/unbound/
 COPY --from=unbound /etc/passwd /etc/group /etc/
 COPY data/ /
 
+ADD "https://www.internic.net/domain/named.root" /etc/unbound/root.hints
+ADD "http://data.iana.org/root-anchors/icannbundle.pem" /etc/unbound/root-anchors/icannbundle.pem
+
 ENV PATH=/opt/unbound/sbin:/opt/drill/bin:/bin:/usr/bin
 
+# Ignore DL4006, I want /bin/sh, dammit!
+# Ignore SC2005:
+#       We're using echo/grep below because technically unbound-anchor returns code 1
+#       if creating root.key for the first time, causing the build to fail.
+#       Just make sure the anchor is actually OK first.
+#
+# hadolint ignore=DL4006,SC2005
 RUN <<EOF
     sed -i -e "s/\/opt\/unbound//" "/etc/unbound/unbound.conf.example"
-    unbound-anchor -a /etc/unbound/root.key
+    echo $( \
+        unbound-anchor \
+            -v \
+            -r /etc/unbound/root.hints \
+            -c /etc/unbound/root-anchors/icannbundle.pem \
+            -a /etc/unbound/root.key \
+    ) | grep -q "success: the anchor is ok"
     chmod +x /unbound.sh
 EOF
 
