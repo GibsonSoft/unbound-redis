@@ -18,7 +18,7 @@ server:
     cache-min-ttl: 300
 
     # Set the working directory for the program.
-    directory: "/etc/unbound"
+    directory: "/var/chroot/unbound"
 
     # If enabled, Unbound will respond with Extended DNS Error codes (RFC 8914).
     # These EDEs attach informative error messages to a response for various
@@ -56,7 +56,7 @@ server:
     username: "_unbound"
 
     # The  process  id  is  written  to the file.
-    pidfile: "/etc/unbound/unbound.pid"
+    pidfile: "./unbound.pid"
 
     ###########################################################################
     # LOGGING
@@ -77,7 +77,7 @@ server:
     # If you want to log to a file, use:
     # logfile: /etc/unbound/unbound.log
     # Set log location (using /dev/null further limits logging)
-    logfile: /dev/null
+    logfile: ./etc/unbound/unbound.log
 
     # Set logging level
     # Level 0: No verbosity, only errors.
@@ -135,11 +135,11 @@ server:
 
     # File with trust anchor for  one  zone, which is tracked with RFC5011
     # probes.
-    auto-trust-anchor-file: "root.key"
+    auto-trust-anchor-file: "./var/unbound/root.key"
 
     # Enable chroot (i.e, change apparent root directory for the current
     # running process and its children)
-    chroot: "/etc/unbound"
+    chroot: "/var/chroot/unbound"
 
     # Deny queries of type ANY with an empty response.
     deny-any: yes
@@ -339,14 +339,14 @@ server:
     ###########################################################################
 
     # Include file for local-data and local-data-ptr
-    include: /etc/unbound/a-records.conf
-    include: /etc/unbound/srv-records.conf
+    include: ./etc/unbound/a-records.conf
+    include: ./etc/unbound/srv-records.conf
 
     ###########################################################################
     # FORWARD ZONE
     ###########################################################################
 
-    include: /etc/unbound/forward-records.conf
+    include: ./etc/unbound/forward-records.conf
 
 
 remote-control:

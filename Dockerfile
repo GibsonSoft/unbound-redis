@@ -71,6 +71,11 @@ ARG UNBOUND_DOWNLOAD_URL=${UNBOUND_SOURCE}/${UNBOUND_SOURCE_FILE}
 LABEL maintainer="Matthew Vance"
 
 COPY --from=openssl /opt/openssl /opt/openssl
+COPY ./data/etc/ /opt/unbound/etc/
+COPY ./data/unbound /opt/unbound/unbound.bootstrap
+
+ADD "https://www.internic.net/domain/named.root" /opt/unbound/var/unbound/root.hints
+ADD "http://data.iana.org/root-anchors/icannbundle.pem" /opt/unbound/var/unbound/icannbundle.pem
 
 # Ignore DL3020, using ADD to grab remote file. Cannot do with COPY
 # hadolint ignore=DL3020
@@ -115,12 +120,8 @@ RUN <<EOF
         --disable-rpath
     make -j install
     mv /opt/unbound/etc/unbound/unbound.conf /opt/unbound/etc/unbound/unbound.conf.example
-    strip /opt/unbound/sbin/unbound
-    strip /opt/unbound/sbin/unbound-anchor
-    strip /opt/unbound/sbin/unbound-checkconf
-    strip /opt/unbound/sbin/unbound-control
-    strip /opt/unbound/sbin/unbound-host
-    rm -rf /opt/unbound/share/man
+    find /opt/unbound/sbin -type f -exec strip '{}' \;
+    rm -rf /opt/unbound/sbin/unbound-host
     apk del build-deps ${CORE_BUILD_DEPS}
 EOF
 
@@ -171,23 +172,18 @@ FROM scratch as final
 WORKDIR /
 SHELL ["/bin/sh", "-cexo", "pipefail"]
 
-COPY --from=base /bin/busybox /lib/busybox
-COPY --from=base /lib/ld-musl*.so.1 /lib/
+COPY --from=base /bin/busybox /lib/ld-musl*.so.1 /lib/
 COPY --from=base /etc/ssl/certs/ /etc/ssl/certs/
-COPY --from=ldns /opt/ldns/bin/drill /opt/drill/bin/drill
-COPY --from=unbound /opt/unbound/sbin/ /opt/unbound/sbin/
-COPY --from=unbound /opt/unbound/etc/unbound/ /etc/unbound/
+COPY --from=ldns /opt/ldns/bin/drill /bin/drill
+COPY --from=unbound /opt/unbound/sbin/ /sbin/
+COPY --from=unbound /opt/unbound/etc/ /var/chroot/unbound/etc/
+COPY --from=unbound /opt/unbound/var/ /var/chroot/unbound/var/
 COPY --from=unbound /etc/passwd /etc/group /etc/
-COPY data/ /
+COPY --from=unbound /opt/unbound/unbound.bootstrap /unbound
 
-ADD "https://www.internic.net/domain/named.root" /etc/unbound/root.hints
-ADD "http://data.iana.org/root-anchors/icannbundle.pem" /etc/unbound/root-anchors/icannbundle.pem
-
-WORKDIR /bin
 RUN ["/lib/busybox", "ln", "-s", "/lib/busybox", "/bin/sh"]
 
-WORKDIR /
-ENV PATH="/bin:/lib"
+ENV PATH="/bin:/sbin"
 ENV SH_CMDS="ln sed grep chmod chown mkdir cp awk uniq bc rm find"
 
 # Ignore DL4006, I want /bin/sh, dammit!
@@ -198,27 +194,31 @@ ENV SH_CMDS="ln sed grep chmod chown mkdir cp awk uniq bc rm find"
 #
 # hadolint ignore=DL4006,SC2005
 RUN <<EOF
-    for link in {$SH_CMDS}; do
-        busybox ln -s /lib/busybox /bin/"$link"
+    for link in ${SH_CMDS}; do
+        /lib/busybox ln -s /lib/busybox /bin/"$link"
     done
 
-    sed -i -e "s/\/opt\/unbound//" "/etc/unbound/unbound.conf.example"
+    unset SH_CMDS
+
+    ln -s /var/chroot/unbound/var/unbound/ /var/unbound
+    ln -s /var/chroot/unbound/etc/unbound/ /etc/unbound
+
     echo $( \
         unbound-anchor \
             -v \
-            -r /etc/unbound/root.hints \
-            -c /etc/unbound/root-anchors/icannbundle.pem \
-            -a /etc/unbound/root.key \
+            -r /var/unbound/root.hints \
+            -c /var/unbound/icannbundle.pem \
+            -a /var/unbound/root.key \
     ) | grep -q "success: the anchor is ok"
-    chmod +x /unbound.sh
-    chown -R _unbound:_unbound /etc/unbound
-    mkdir -p /etc/unbound/dev
-    cp -a /dev/random /dev/urandom /dev/null /etc/unbound/dev/
+
+    chmod +x /unbound
+    mkdir -p /var/chroot/unbound/dev/
+    cp -a /dev/random /dev/urandom /dev/null /var/chroot/unbound/dev/
 EOF
 
 EXPOSE 53/tcp
 EXPOSE 53/udp
 
-HEALTHCHECK --interval=30s --timeout=30s --start-period=10s --retries=3 CMD drill @127.0.0.1 cloudflare.com || exit 1
-ENTRYPOINT ["/boot", "-d"]
+HEALTHCHECK --interval=30s --timeout=30s --start-period=10s --retries=3 CMD ["/bin/drill", "@127.0.0.1", "cloudflare.com"]
+ENTRYPOINT ["/unbound", "-d"]
 CMD ["-c", "/etc/unbound/unbound.conf"]
