@@ -93,7 +93,7 @@ RUN <<EOF
 #   Needed to static-compile unbound, per https://github.com/NLnetLabs/unbound/issues/91#issuecomment-1707544943
     sed -e 's/@LDFLAGS@/@LDFLAGS@ -all-static/' -i Makefile.in
     LIBS="-lpthread -lm"
-    LDFLAGS="-Wl,-static -static -static-libgcc -no-pie"
+    LDFLAGS="-Wl,-static -static -static-libgcc"
     ./configure \
         --prefix=/opt/unbound \
         --with-pthreads \
@@ -110,7 +110,9 @@ RUN <<EOF
         --enable-dnscrypt \
         --disable-flto \
         --disable-shared \
-        --enable-fully-static
+        --disable-static \
+        --enable-fully-static \
+        --disable-rpath
     make -j install
     mv /opt/unbound/etc/unbound/unbound.conf /opt/unbound/etc/unbound/unbound.conf.example
     strip /opt/unbound/sbin/unbound
@@ -169,8 +171,7 @@ FROM scratch as final
 WORKDIR /
 SHELL ["/bin/sh", "-cexo", "pipefail"]
 
-COPY --from=base /bin/ /bin/
-COPY --from=base /usr/bin/ /usr/bin/
+COPY --from=base /bin/busybox /lib/busybox
 COPY --from=base /lib/ld-musl*.so.1 /lib/
 COPY --from=base /etc/ssl/certs/ /etc/ssl/certs/
 COPY --from=ldns /opt/ldns/bin/drill /opt/drill/bin/drill
@@ -182,7 +183,12 @@ COPY data/ /
 ADD "https://www.internic.net/domain/named.root" /etc/unbound/root.hints
 ADD "http://data.iana.org/root-anchors/icannbundle.pem" /etc/unbound/root-anchors/icannbundle.pem
 
-ENV PATH=/opt/unbound/sbin:/opt/drill/bin:/bin:/usr/bin
+WORKDIR /bin
+RUN ["/lib/busybox", "ln", "-s", "/lib/busybox", "/bin/sh"]
+
+WORKDIR /
+ENV PATH="/bin:/lib"
+ENV SH_CMDS="ln sed grep chmod chown mkdir cp awk uniq bc rm find"
 
 # Ignore DL4006, I want /bin/sh, dammit!
 # Ignore SC2005:
@@ -192,6 +198,10 @@ ENV PATH=/opt/unbound/sbin:/opt/drill/bin:/bin:/usr/bin
 #
 # hadolint ignore=DL4006,SC2005
 RUN <<EOF
+    for link in {$SH_CMDS}; do
+        busybox ln -s /lib/busybox /bin/"$link"
+    done
+
     sed -i -e "s/\/opt\/unbound//" "/etc/unbound/unbound.conf.example"
     echo $( \
         unbound-anchor \
@@ -210,4 +220,5 @@ EXPOSE 53/tcp
 EXPOSE 53/udp
 
 HEALTHCHECK --interval=30s --timeout=30s --start-period=10s --retries=3 CMD drill @127.0.0.1 cloudflare.com || exit 1
-CMD ["/unbound.sh"]
+ENTRYPOINT ["/boot", "-d"]
+CMD ["-c", "/etc/unbound/unbound.conf"]

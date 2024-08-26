@@ -38,4 +38,16 @@ if [ ! -f /etc/unbound/unbound.conf ]; then
         /etc/unbound/unbound.conf.template > /etc/unbound/unbound.conf
 fi
 
-exec /opt/unbound/sbin/unbound -d -c /etc/unbound/unbound.conf
+rm /boot
+ln -s /bin/unbound /boot
+
+mkdir /sbin
+mv /opt/unbound/sbin/* /sbin
+mv /opt/drill/bin/drill /bin
+rm -rf /opt
+
+find /bin -type l -delete
+
+/lib/busybox rm -rf /lib
+
+exec /sbin/unbound "$@"
