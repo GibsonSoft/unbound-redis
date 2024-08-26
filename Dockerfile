@@ -200,8 +200,10 @@ RUN <<EOF
             -c /etc/unbound/root-anchors/icannbundle.pem \
             -a /etc/unbound/root.key \
     ) | grep -q "success: the anchor is ok"
-    chown _unbound:_unbound 
     chmod +x /unbound.sh
+    chown -R _unbound:_unbound /etc/unbound
+    mkdir -p /etc/unbound/dev
+    cp -a /dev/random /dev/urandom /dev/null /etc/unbound/dev/
 EOF
 
 EXPOSE 53/tcp
