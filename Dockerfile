@@ -87,7 +87,8 @@ RUN <<EOF
     tar -xzf unbound.tar.gz --strip-components=1 -C ./unbound-src
     rm -f unbound.tar.gz
     cd ./unbound-src || exit
-    adduser -D -s /dev/null -h /etc _unbound _unbound
+    addgroup -S _unbound
+    adduser -S -s /dev/null -h /etc/unbound -G _unbound _unbound
     
 #   Needed to static-compile unbound, per https://github.com/NLnetLabs/unbound/issues/91#issuecomment-1707544943
     sed -e 's/@LDFLAGS@/@LDFLAGS@ -all-static/' -i Makefile.in
@@ -199,6 +200,7 @@ RUN <<EOF
             -c /etc/unbound/root-anchors/icannbundle.pem \
             -a /etc/unbound/root.key \
     ) | grep -q "success: the anchor is ok"
+    chown _unbound:_unbound 
     chmod +x /unbound.sh
 EOF
 
