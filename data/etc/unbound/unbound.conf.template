@@ -55,6 +55,9 @@ server:
     # Drop user  privileges after  binding the port.
     username: "_unbound"
 
+    # The  process  id  is  written  to the file.
+    pidfile: "/etc/unbound/unbound.pid"
+
     ###########################################################################
     # LOGGING
     ###########################################################################
