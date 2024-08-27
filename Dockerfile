@@ -25,8 +25,6 @@ ARG OPENSSL_VERSION
 ARG OPENSSL_SOURCE_FILE=openssl-${OPENSSL_VERSION}.tar.gz
 ARG OPENSSL_DOWNLOAD_URL=${OPENSSL_SOURCE}/${OPENSSL_SOURCE_FILE}
 
-LABEL maintainer="Matthew Vance"
-
 # Ignore DL3020, using ADD to grab remote file. Cannot do with COPY
 # hadolint ignore=DL3020
 ADD --checksum=sha256:${OPENSSL_SHA256} ${OPENSSL_DOWNLOAD_URL} openssl.tar.gz
@@ -68,8 +66,6 @@ ARG UNBOUND_VERSION
 
 ARG UNBOUND_SOURCE_FILE=unbound-${UNBOUND_VERSION}.tar.gz
 ARG UNBOUND_DOWNLOAD_URL=${UNBOUND_SOURCE}/${UNBOUND_SOURCE_FILE}
-
-LABEL maintainer="Matthew Vance"
 
 COPY --from=openssl /opt/openssl /opt/openssl
 COPY ./data/etc/ /opt/unbound/etc/
