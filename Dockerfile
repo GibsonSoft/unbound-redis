@@ -85,7 +85,7 @@ ADD --checksum=sha256:${UNBOUND_SHA256} ${UNBOUND_DOWNLOAD_URL} unbound.tar.gz
 # Ignore DL3018, we're specifying pkgs via env
 # Ignore SC2086, need to leave out double quotes to bring in deps via env
 # Ignore DL3003, only need to cd for this RUN
-# Ignore SC2034, Needed to static-compile unbound, per https://github.com/NLnetLabs/unbound/issues/91#issuecomment-1707544943
+# Ignore SC2034, Needed to static-compile unbound/ldns, per https://github.com/NLnetLabs/unbound/issues/91#issuecomment-1707544943
 # hadolint ignore=DL3018,SC2086,DL3003,SC2034
 RUN <<EOF
     mkdir ./unbound-src
@@ -145,7 +145,7 @@ ADD --checksum=sha256:${LDNS_SHA256} ${LDNS_DOWNLOAD_URL} ldns.tar.gz
 # Ignore DL3018, we're specifying pkgs via env
 # Ignore SC2086, need to leave out double quotes to bring in deps via env
 # Ignore DL3003, only need to cd for this RUN
-# Ignore SC2034, Needed to static-compile unbound, per https://github.com/NLnetLabs/unbound/issues/91#issuecomment-1707544943
+# Ignore SC2034, Needed to static-compile unbound/ldns, per https://github.com/NLnetLabs/unbound/issues/91#issuecomment-1707544943
 # hadolint ignore=DL3018,SC2086,DL3003,SC2034
 RUN <<EOF
     mkdir ./ldns-src
