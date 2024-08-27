@@ -171,7 +171,7 @@ RUN <<EOF
     apk del build-deps ${CORE_BUILD_DEPS}
 EOF
 
-FROM scratch as final
+FROM scratch AS final
 WORKDIR /
 SHELL ["/bin/sh", "-cexo", "pipefail"]
 
