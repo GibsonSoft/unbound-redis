@@ -123,6 +123,7 @@ RUN <<EOF
     mv /opt/unbound/etc/unbound/unbound.conf /opt/unbound/etc/unbound/unbound.conf.example
     rm -rf /opt/unbound/sbin/unbound-host
     find /opt/unbound/sbin -type f -exec strip '{}' \; -exec upx --best --lzma -q '{}' \;
+    chmod +x /opt/unbound/unbound.bootstrap
     apk del build-deps ${CORE_BUILD_DEPS}
 EOF
 
@@ -213,7 +214,6 @@ RUN <<EOF
             -a /var/unbound/root.key \
     ) | grep -q "success: the anchor is ok"
 
-    chmod +x /unbound
     mkdir -p /var/chroot/unbound/dev/
     cp -a /dev/random /dev/urandom /dev/null /var/chroot/unbound/dev/
 EOF
