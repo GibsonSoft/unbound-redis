@@ -75,10 +75,11 @@ COPY --from=openssl /opt/openssl /opt/openssl
 COPY ./data/etc/ /opt/unbound/etc/
 COPY ./data/unbound.bootstrap /opt/unbound/unbound.bootstrap
 
-ADD "https://www.internic.net/domain/named.root" /opt/unbound/var/unbound/root.hints
-ADD "http://data.iana.org/root-anchors/icannbundle.pem" /opt/unbound/var/unbound/icannbundle.pem
-
 # Ignore DL3020, using ADD to grab remote file. Cannot do with COPY
+# hadolint ignore=DL3020
+ADD ${NAMED_ROOTS} /opt/unbound/var/unbound/root.hints
+# hadolint ignore=DL3020
+ADD ${ICANN_CERT} /opt/unbound/var/unbound/icannbundle.pem
 # hadolint ignore=DL3020
 ADD --checksum=sha256:${UNBOUND_SHA256} ${UNBOUND_DOWNLOAD_URL} unbound.tar.gz
 
