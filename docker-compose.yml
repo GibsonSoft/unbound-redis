@@ -16,6 +16,7 @@ services:
           linux-headers
           perl
           file
+          upx
         
         LDNS_BUILD_DEPS: >
           libtool

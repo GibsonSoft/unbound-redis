@@ -56,6 +56,7 @@ RUN <<EOF
     make -j
     make -j install_sw
     strip /opt/openssl/bin/openssl
+    upx --best --lzma -q /opt/openssl/bin/openssl
     apk del build-deps ${CORE_BUILD_DEPS}
 EOF
 
@@ -120,8 +121,8 @@ RUN <<EOF
         --disable-rpath
     make -j install
     mv /opt/unbound/etc/unbound/unbound.conf /opt/unbound/etc/unbound/unbound.conf.example
-    find /opt/unbound/sbin -type f -exec strip '{}' \;
     rm -rf /opt/unbound/sbin/unbound-host
+    find /opt/unbound/sbin -type f -exec strip '{}' \; -exec upx --best --lzma -q '{}' \;
     apk del build-deps ${CORE_BUILD_DEPS}
 EOF
 
@@ -165,6 +166,7 @@ RUN <<EOF
     make -j
     make -j install
     strip /opt/ldns/bin/drill
+    upx --best --lzma -q /opt/ldns/bin/drill
     apk del build-deps ${CORE_BUILD_DEPS}
 EOF
 
