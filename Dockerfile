@@ -25,8 +25,6 @@ ARG OPENSSL_VERSION
 ARG OPENSSL_SOURCE_FILE=openssl-${OPENSSL_VERSION}.tar.gz
 ARG OPENSSL_DOWNLOAD_URL=${OPENSSL_SOURCE}/${OPENSSL_SOURCE_FILE}
 
-LABEL maintainer="Matthew Vance"
-
 # Ignore DL3020, using ADD to grab remote file. Cannot do with COPY
 # hadolint ignore=DL3020
 ADD --checksum=sha256:${OPENSSL_SHA256} ${OPENSSL_DOWNLOAD_URL} openssl.tar.gz
@@ -56,6 +54,7 @@ RUN <<EOF
     make -j
     make -j install_sw
     strip /opt/openssl/bin/openssl
+    upx --best --lzma -q /opt/openssl/bin/openssl
     apk del build-deps ${CORE_BUILD_DEPS}
 EOF
 
@@ -64,27 +63,28 @@ ARG UNBOUND_BUILD_DEPS
 ARG UNBOUND_SHA256
 ARG UNBOUND_SOURCE
 ARG UNBOUND_VERSION
-
 ARG UNBOUND_SOURCE_FILE=unbound-${UNBOUND_VERSION}.tar.gz
 ARG UNBOUND_DOWNLOAD_URL=${UNBOUND_SOURCE}/${UNBOUND_SOURCE_FILE}
 
-LABEL maintainer="Matthew Vance"
+ARG ROOT_HINTS
+ARG ICANN_CERT
 
 COPY --from=openssl /opt/openssl /opt/openssl
 COPY ./data/etc/ /opt/unbound/etc/
-COPY ./data/unbound /opt/unbound/unbound.bootstrap
-
-ADD "https://www.internic.net/domain/named.root" /opt/unbound/var/unbound/root.hints
-ADD "http://data.iana.org/root-anchors/icannbundle.pem" /opt/unbound/var/unbound/icannbundle.pem
+COPY ./data/unbound.bootstrap /opt/unbound/unbound.bootstrap
 
 # Ignore DL3020, using ADD to grab remote file. Cannot do with COPY
+# hadolint ignore=DL3020
+ADD ${ROOT_HINTS} /opt/unbound/var/unbound/root.hints
+# hadolint ignore=DL3020
+ADD ${ICANN_CERT} /opt/unbound/var/unbound/icannbundle.pem
 # hadolint ignore=DL3020
 ADD --checksum=sha256:${UNBOUND_SHA256} ${UNBOUND_DOWNLOAD_URL} unbound.tar.gz
 
 # Ignore DL3018, we're specifying pkgs via env
 # Ignore SC2086, need to leave out double quotes to bring in deps via env
 # Ignore DL3003, only need to cd for this RUN
-# Ignore SC2034, Needed to static-compile unbound, per https://github.com/NLnetLabs/unbound/issues/91#issuecomment-1707544943
+# Ignore SC2034, Needed to static-compile unbound/ldns, per https://github.com/NLnetLabs/unbound/issues/91#issuecomment-1707544943
 # hadolint ignore=DL3018,SC2086,DL3003,SC2034
 RUN <<EOF
     mkdir ./unbound-src
@@ -120,8 +120,9 @@ RUN <<EOF
         --disable-rpath
     make -j install
     mv /opt/unbound/etc/unbound/unbound.conf /opt/unbound/etc/unbound/unbound.conf.example
-    find /opt/unbound/sbin -type f -exec strip '{}' \;
     rm -rf /opt/unbound/sbin/unbound-host
+    find /opt/unbound/sbin -type f -exec strip '{}' \; -exec upx --best --lzma -q '{}' \;
+    chmod +x /opt/unbound/unbound.bootstrap
     apk del build-deps ${CORE_BUILD_DEPS}
 EOF
 
@@ -143,7 +144,7 @@ ADD --checksum=sha256:${LDNS_SHA256} ${LDNS_DOWNLOAD_URL} ldns.tar.gz
 # Ignore DL3018, we're specifying pkgs via env
 # Ignore SC2086, need to leave out double quotes to bring in deps via env
 # Ignore DL3003, only need to cd for this RUN
-# Ignore SC2034, Needed to static-compile unbound, per https://github.com/NLnetLabs/unbound/issues/91#issuecomment-1707544943
+# Ignore SC2034, Needed to static-compile unbound/ldns, per https://github.com/NLnetLabs/unbound/issues/91#issuecomment-1707544943
 # hadolint ignore=DL3018,SC2086,DL3003,SC2034
 RUN <<EOF
     mkdir ./ldns-src
@@ -165,10 +166,11 @@ RUN <<EOF
     make -j
     make -j install
     strip /opt/ldns/bin/drill
+    upx --best --lzma -q /opt/ldns/bin/drill
     apk del build-deps ${CORE_BUILD_DEPS}
 EOF
 
-FROM scratch as final
+FROM scratch AS final
 WORKDIR /
 SHELL ["/bin/sh", "-cexo", "pipefail"]
 
@@ -211,7 +213,6 @@ RUN <<EOF
             -a /var/unbound/root.key \
     ) | grep -q "success: the anchor is ok"
 
-    chmod +x /unbound
     mkdir -p /var/chroot/unbound/dev/
     cp -a /dev/random /dev/urandom /dev/null /var/chroot/unbound/dev/
 EOF
