@@ -63,5 +63,5 @@ services:
         UNBOUND_SOURCE: https://nlnetlabs.nl/downloads/unbound/
         UNBOUND_VERSION: 1.21.0
 
-        NAMED_ROOTS: https://www.internic.net/domain/named.root
+        ROOT_HINTS: https://www.internic.net/domain/named.root
         ICANN_CERT: https://data.iana.org/root-anchors/icannbundle.pem

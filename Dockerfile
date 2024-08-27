@@ -63,9 +63,11 @@ ARG UNBOUND_BUILD_DEPS
 ARG UNBOUND_SHA256
 ARG UNBOUND_SOURCE
 ARG UNBOUND_VERSION
-
 ARG UNBOUND_SOURCE_FILE=unbound-${UNBOUND_VERSION}.tar.gz
 ARG UNBOUND_DOWNLOAD_URL=${UNBOUND_SOURCE}/${UNBOUND_SOURCE_FILE}
+
+ARG ROOT_HINTS
+ARG ICANN_CERT
 
 COPY --from=openssl /opt/openssl /opt/openssl
 COPY ./data/etc/ /opt/unbound/etc/
@@ -73,7 +75,7 @@ COPY ./data/unbound.bootstrap /opt/unbound/unbound.bootstrap
 
 # Ignore DL3020, using ADD to grab remote file. Cannot do with COPY
 # hadolint ignore=DL3020
-ADD ${NAMED_ROOTS} /opt/unbound/var/unbound/root.hints
+ADD ${ROOT_HINTS} /opt/unbound/var/unbound/root.hints
 # hadolint ignore=DL3020
 ADD ${ICANN_CERT} /opt/unbound/var/unbound/icannbundle.pem
 # hadolint ignore=DL3020
