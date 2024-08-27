@@ -70,8 +70,6 @@ ARG ROOT_HINTS
 ARG ICANN_CERT
 
 COPY --from=openssl /opt/openssl /opt/openssl
-COPY ./data/etc/ /opt/unbound/etc/
-COPY ./data/unbound.bootstrap /opt/unbound/unbound.bootstrap
 
 # Ignore DL3020, using ADD to grab remote file. Cannot do with COPY
 # hadolint ignore=DL3020
@@ -122,7 +120,6 @@ RUN <<EOF
     mv /opt/unbound/etc/unbound/unbound.conf /opt/unbound/etc/unbound/unbound.conf.example
     rm -rf /opt/unbound/sbin/unbound-host
     find /opt/unbound/sbin -type f -exec strip '{}' \; -exec upx --best --lzma -q '{}' \;
-    chmod +x /opt/unbound/unbound.bootstrap
     apk del build-deps ${CORE_BUILD_DEPS}
 EOF
 
@@ -176,12 +173,16 @@ SHELL ["/bin/sh", "-cexo", "pipefail"]
 
 COPY --from=base /bin/busybox /lib/ld-musl*.so.1 /lib/
 COPY --from=base /etc/ssl/certs/ /etc/ssl/certs/
+
 COPY --from=ldns /opt/ldns/bin/drill /bin/drill
+
 COPY --from=unbound /opt/unbound/sbin/ /sbin/
 COPY --from=unbound /opt/unbound/etc/ /var/chroot/unbound/etc/
 COPY --from=unbound /opt/unbound/var/ /var/chroot/unbound/var/
 COPY --from=unbound /etc/passwd /etc/group /etc/
-COPY --from=unbound /opt/unbound/unbound.bootstrap /unbound
+
+COPY ./data/etc/ /var/chroot/unbound/etc/
+COPY --chmod=744 ./data/unbound.bootstrap /unbound
 
 RUN ["/lib/busybox", "ln", "-s", "/lib/busybox", "/bin/sh"]
 
