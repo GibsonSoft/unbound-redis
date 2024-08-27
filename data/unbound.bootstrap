@@ -7,7 +7,7 @@ if [ ! -f /etc/unbound/unbound.conf ]; then
     totalMemory=$((1024 * $( awk '/^MemTotal/ { print $2 }' /proc/meminfo ) ))
 
     # Limit available memory for unbound to 1/4 of total system available
-    availableMemory=$(($totalMemory / 4))
+    availableMemory=$totalMemory
 
     # Use roughly twice as much rrset cache memory as msg cache memory
     rr_cache_size=$(($availableMemory / 3))
