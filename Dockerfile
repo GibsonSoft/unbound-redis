@@ -107,7 +107,6 @@ RUN <<EOF
         --disable-rpath
     make -j install
     mv /opt/unbound/etc/unbound/unbound.conf /opt/unbound/etc/unbound/unbound.conf.example
-    rm -rf /opt/unbound/sbin/unbound-host
     find /opt/unbound/sbin -type f -exec strip '{}' \; -exec upx --best --lzma -q '{}' \;
     apk del build-deps ${CORE_BUILD_DEPS}
 EOF
