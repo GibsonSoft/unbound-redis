@@ -73,7 +73,7 @@ LABEL maintainer="Matthew Vance"
 
 COPY --from=openssl /opt/openssl /opt/openssl
 COPY ./data/etc/ /opt/unbound/etc/
-COPY ./data/unbound /opt/unbound/unbound.bootstrap
+COPY ./data/unbound.bootstrap /opt/unbound/unbound.bootstrap
 
 ADD "https://www.internic.net/domain/named.root" /opt/unbound/var/unbound/root.hints
 ADD "http://data.iana.org/root-anchors/icannbundle.pem" /opt/unbound/var/unbound/icannbundle.pem
