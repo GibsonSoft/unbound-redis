@@ -13,8 +13,8 @@ if [ ! -f /etc/unbound/unbound.conf ]; then
     rr_cache_size=$(($availableMemory / 3))
     msg_cache_size=$(($rr_cache_size / 2))
 
-    # Use # of physical CPUs to calculate threads and slabs
-    nproc=$(awk '/^cpu cores/ { print $4 }' /proc/cpuinfo | uniq)
+    # Use # of CPUs/threads to calculate threads and slabs
+    nproc=$(nproc)
     if [ "$nproc" -gt 1 ]; then
         threads=$nproc
         

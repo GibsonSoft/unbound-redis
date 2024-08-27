@@ -186,7 +186,7 @@ COPY --from=unbound /opt/unbound/unbound.bootstrap /unbound
 RUN ["/lib/busybox", "ln", "-s", "/lib/busybox", "/bin/sh"]
 
 ENV PATH="/bin:/sbin"
-ENV SH_CMDS="ln sed grep chmod chown mkdir cp awk uniq bc rm find"
+ENV SH_CMDS="ln sed grep chmod chown mkdir cp awk uniq bc rm find nproc"
 
 # Ignore DL4006, I want /bin/sh, dammit!
 # Ignore SC2005:
