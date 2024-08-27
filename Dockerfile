@@ -11,7 +11,7 @@ SHELL ["/bin/sh", "-cexo", "pipefail"]
 # Ignore SC2086, need to leave out double quotes to bring in deps via env
 # hadolint ignore=DL3018,SC2086
 RUN <<EOF
-    apk update
+    apk --no-cache upgrade
     apk add --no-cache ${CORE_BUILD_DEPS}
 EOF
 
