@@ -1,79 +1,105 @@
-ARG ALPINE_IMAGE_VERSION=3.20.2
+ARG ALPINE_VERSION=latest
 
-FROM alpine:$ALPINE_IMAGE_VERSION AS openssl
-LABEL maintainer="Matthew Vance"
+FROM alpine:${ALPINE_VERSION} AS base
+ARG CORE_BUILD_DEPS
+ENV CORE_BUILD_DEPS=${CORE_BUILD_DEPS}
 
 WORKDIR /tmp/src
-COPY env/openssl.env openssl.env
-
-SHELL ["/bin/ash", "-cexo", "pipefail"]
+SHELL ["/bin/sh", "-cexo", "pipefail"]
 
 # Ignore DL3018, we're specifying pkgs via env
 # Ignore SC2086, need to leave out double quotes to bring in deps via env
-# Ignore DL3003, switching via WORKDIR explodes image size due additial RUNs
-# hadolint ignore=DL3018,SC2086,DL3003
+# hadolint ignore=DL3018,SC2086
 RUN <<EOF
-    # shellcheck source=/dev/null
-    set -a && . ./openssl.env && set +a
     apk update
-    apk add --no-cache --virtual build-deps ${BUILD_DEPS_OPENSSL}
-    curl -L "${SOURCE_OPENSSL}""${VERSION_OPENSSL}".tar.gz -o openssl.tar.gz
-    echo "${SHA256_OPENSSL} ./openssl.tar.gz" | sha256sum -c -
-    curl -L "${SOURCE_OPENSSL}""${VERSION_OPENSSL}".tar.gz.asc -o openssl.tar.gz.asc
+    apk add --no-cache ${CORE_BUILD_DEPS}
+EOF
+
+FROM base AS openssl
+ARG OPENSSL_BUILD_DEPS
+ARG OPENSSL_OPGP_KEYS
+ARG OPENSSL_SHA256
+ARG OPENSSL_SOURCE
+ARG OPENSSL_VERSION 
+
+ARG OPENSSL_SOURCE_FILE=openssl-${OPENSSL_VERSION}.tar.gz
+ARG OPENSSL_DOWNLOAD_URL=${OPENSSL_SOURCE}/${OPENSSL_SOURCE_FILE}
+
+LABEL maintainer="Matthew Vance"
+
+# Ignore DL3020, using ADD to grab remote file. Cannot do with COPY
+# hadolint ignore=DL3020
+ADD --checksum=sha256:${OPENSSL_SHA256} ${OPENSSL_DOWNLOAD_URL} openssl.tar.gz
+# hadolint ignore=DL3020
+ADD ${OPENSSL_DOWNLOAD_URL}.asc openssl.tar.gz.asc
+
+# Ignore DL3018, we're specifying pkgs via env
+# Ignore SC2086, need to leave out double quotes to bring in deps via env
+# Ignore DL3003, only need to cd for this RUN
+# hadolint ignore=DL3003,DL3018,SC2086
+RUN <<EOF
     GNUPGHOME="$(mktemp -d)"
     export GNUPGHOME
-    gpg --no-tty --keyserver keyserver.ubuntu.com --recv-keys "${OPGP_OPENSSL_1}" "${OPGP_OPENSSL_2}" "${OPGP_OPENSSL_3}" "${OPGP_OPENSSL_4}" "${OPGP_OPENSSL_5}"
+    apk add --no-cache --virtual build-deps ${OPENSSL_BUILD_DEPS}
+    gpg --no-tty --keyserver keyserver.ubuntu.com --recv-keys ${OPENSSL_OPGP_KEYS}
     gpg --batch --verify openssl.tar.gz.asc openssl.tar.gz
     mkdir ./openssl-src
     tar -xzf openssl.tar.gz --strip-components=1 -C ./openssl-src
-    cd /tmp/src/openssl-src || exit
-    ./config \
+    rm -f openssl.tar.gz openssl.tar.gz.asc
+    cd ./openssl-src || exit
+    ./Configure \
         --prefix=/opt/openssl \
         --openssldir=/opt/openssl \
-        no-weak-ssl-ciphers \
         no-ssl3 \
-        no-shared \
         enable-ec_nistp_64_gcc_128 \
-        -DOPENSSL_NO_HEARTBEATS \
-        -fstack-protector-strong
-    make depend
-    nproc | xargs -I % make -j%
-    make install_sw
-    apk del build-deps
-    rm -rf \
-        /tmp/* \
-        /var/tmp/* \
-        /var/lib/apt/lists/*
+        -static
+    make -j
+    make -j install_sw
+    strip /opt/openssl/bin/openssl
+    apk del build-deps ${CORE_BUILD_DEPS}
 EOF
 
-FROM alpine:$ALPINE_IMAGE_VERSION AS unbound
+FROM base AS unbound
+ARG UNBOUND_BUILD_DEPS
+ARG UNBOUND_SHA256
+ARG UNBOUND_SOURCE
+ARG UNBOUND_VERSION
+
+ARG UNBOUND_SOURCE_FILE=unbound-${UNBOUND_VERSION}.tar.gz
+ARG UNBOUND_DOWNLOAD_URL=${UNBOUND_SOURCE}/${UNBOUND_SOURCE_FILE}
+
 LABEL maintainer="Matthew Vance"
 
-WORKDIR /tmp/src
-COPY env/unbound.env unbound.env
-
 COPY --from=openssl /opt/openssl /opt/openssl
+COPY ./data/etc/ /opt/unbound/etc/
+COPY ./data/unbound /opt/unbound/unbound.bootstrap
 
-SHELL ["/bin/ash", "-cexo", "pipefail"]
+ADD "https://www.internic.net/domain/named.root" /opt/unbound/var/unbound/root.hints
+ADD "http://data.iana.org/root-anchors/icannbundle.pem" /opt/unbound/var/unbound/icannbundle.pem
+
+# Ignore DL3020, using ADD to grab remote file. Cannot do with COPY
+# hadolint ignore=DL3020
+ADD --checksum=sha256:${UNBOUND_SHA256} ${UNBOUND_DOWNLOAD_URL} unbound.tar.gz
 
 # Ignore DL3018, we're specifying pkgs via env
 # Ignore SC2086, need to leave out double quotes to bring in deps via env
-# Ignore DL3003, switching via WORKDIR explodes image size due additial RUNs
-# hadolint ignore=DL3018,SC2086,DL3003
+# Ignore DL3003, only need to cd for this RUN
+# Ignore SC2034, Needed to static-compile unbound, per https://github.com/NLnetLabs/unbound/issues/91#issuecomment-1707544943
+# hadolint ignore=DL3018,SC2086,DL3003,SC2034
 RUN <<EOF
-    # shellcheck source=/dev/null
-    set -a && . ./unbound.env && set +a
-    apk add --no-cache --virtual build-deps ${BUILD_DEPS_UNBOUND} 
-    apk add --no-cache ${RUNTIME_DEPS_UNBOUND}
-    curl -sSL $UNBOUND_DOWNLOAD_URL -o unbound.tar.gz
-    echo "${UNBOUND_SHA256} *unbound.tar.gz" | sha256sum -c -
     mkdir ./unbound-src
+    apk add --no-cache --virtual build-deps ${UNBOUND_BUILD_DEPS}
     tar -xzf unbound.tar.gz --strip-components=1 -C ./unbound-src
     rm -f unbound.tar.gz
-    cd /tmp/src/unbound-src || exit
-    adduser -D -s /dev/null -h /etc _unbound _unbound
+    cd ./unbound-src || exit
+    addgroup -S _unbound
+    adduser -S -s /dev/null -h /etc/unbound -G _unbound _unbound
+    
+#   Needed to static-compile unbound, per https://github.com/NLnetLabs/unbound/issues/91#issuecomment-1707544943
+    sed -e 's/@LDFLAGS@/@LDFLAGS@ -all-static/' -i Makefile.in
+    LIBS="-lpthread -lm"
+    LDFLAGS="-Wl,-static -static -static-libgcc"
     ./configure \
-        --disable-dependency-tracking \
         --prefix=/opt/unbound \
         --with-pthreads \
         --with-username=_unbound \
@@ -86,36 +112,113 @@ RUN <<EOF
         --enable-event-api \
         --enable-subnet \
         --enable-cachedb \
-        --enable-dnscrypt
-    make install
+        --enable-dnscrypt \
+        --disable-flto \
+        --disable-shared \
+        --disable-static \
+        --enable-fully-static \
+        --disable-rpath
+    make -j install
     mv /opt/unbound/etc/unbound/unbound.conf /opt/unbound/etc/unbound/unbound.conf.example
-    apk del build-deps
-    rm -rf \
-        /opt/unbound/share/man \
-        /tmp/* \
-        /var/tmp/* \
-        /var/lib/apt/lists/*
+    find /opt/unbound/sbin -type f -exec strip '{}' \;
+    rm -rf /opt/unbound/sbin/unbound-host
+    apk del build-deps ${CORE_BUILD_DEPS}
 EOF
 
-COPY data/ /
+FROM base AS ldns
+ARG LDNS_BUILD_DEPS
+ARG LDNS_SHA256
+ARG LDNS_SOURCE
+ARG LDNS_VERSION
 
-RUN chmod +x /unbound.sh
+ARG LDNS_SOURCE_FILE=ldns-${LDNS_VERSION}.tar.gz
+ARG LDNS_DOWNLOAD_URL=${LDNS_SOURCE}/${LDNS_SOURCE_FILE}
 
-WORKDIR /opt/unbound/
+COPY --from=openssl /opt/openssl /opt/openssl
 
-ENV PATH /opt/unbound/sbin:"$PATH"
+# Ignore DL3020, using ADD to grab remote file. Cannot do with COPY
+# hadolint ignore=DL3020
+ADD --checksum=sha256:${LDNS_SHA256} ${LDNS_DOWNLOAD_URL} ldns.tar.gz
 
-LABEL org.opencontainers.image.version=${UNBOUND_VERSION} \
-      org.opencontainers.image.title="mvance/unbound" \
-      org.opencontainers.image.description="a validating, recursive, and caching DNS resolver" \
-      org.opencontainers.image.url="https://github.com/MatthewVance/unbound-docker" \
-      org.opencontainers.image.vendor="Matthew Vance" \
-      org.opencontainers.image.licenses="MIT" \
-      org.opencontainers.image.source="https://github.com/MatthewVance/unbound-docker"
+# Ignore DL3018, we're specifying pkgs via env
+# Ignore SC2086, need to leave out double quotes to bring in deps via env
+# Ignore DL3003, only need to cd for this RUN
+# Ignore SC2034, Needed to static-compile unbound, per https://github.com/NLnetLabs/unbound/issues/91#issuecomment-1707544943
+# hadolint ignore=DL3018,SC2086,DL3003,SC2034
+RUN <<EOF
+    mkdir ./ldns-src
+    apk add --no-cache --virtual build-deps ${LDNS_BUILD_DEPS}
+    tar -xzf ldns.tar.gz --strip-components=1 -C ./ldns-src
+    rm -f ldns.tar.gz
+    cd ./ldns-src || exit
+    
+#   Needed to static-compile LDNS, per https://github.com/NLnetLabs/unbound/issues/91#issuecomment-1707544943
+    sed -e 's/@LDFLAGS@/@LDFLAGS@ -all-static/' -i Makefile.in
+    LIBS="-lpthread -lm"
+    LDFLAGS="-Wl,-static -static -static-libgcc -no-pie"
+    ./configure \
+        --prefix=/opt/ldns \
+        --with-ssl=/opt/openssl \
+        --with-drill \
+        --disable-shared \
+        --enable-static
+    make -j
+    make -j install
+    strip /opt/ldns/bin/drill
+    apk del build-deps ${CORE_BUILD_DEPS}
+EOF
+
+FROM scratch as final
+WORKDIR /
+SHELL ["/bin/sh", "-cexo", "pipefail"]
+
+COPY --from=base /bin/busybox /lib/ld-musl*.so.1 /lib/
+COPY --from=base /etc/ssl/certs/ /etc/ssl/certs/
+COPY --from=ldns /opt/ldns/bin/drill /bin/drill
+COPY --from=unbound /opt/unbound/sbin/ /sbin/
+COPY --from=unbound /opt/unbound/etc/ /var/chroot/unbound/etc/
+COPY --from=unbound /opt/unbound/var/ /var/chroot/unbound/var/
+COPY --from=unbound /etc/passwd /etc/group /etc/
+COPY --from=unbound /opt/unbound/unbound.bootstrap /unbound
+
+RUN ["/lib/busybox", "ln", "-s", "/lib/busybox", "/bin/sh"]
+
+ENV PATH="/bin:/sbin"
+ENV SH_CMDS="ln sed grep chmod chown mkdir cp awk uniq bc rm find"
+
+# Ignore DL4006, I want /bin/sh, dammit!
+# Ignore SC2005:
+#       We're using echo/grep below because technically unbound-anchor returns code 1
+#       if creating root.key for the first time, causing the build to fail.
+#       Just make sure the anchor is actually OK first.
+#
+# hadolint ignore=DL4006,SC2005
+RUN <<EOF
+    for link in ${SH_CMDS}; do
+        /lib/busybox ln -s /lib/busybox /bin/"$link"
+    done
+
+    unset SH_CMDS
+
+    ln -s /var/chroot/unbound/var/unbound/ /var/unbound
+    ln -s /var/chroot/unbound/etc/unbound/ /etc/unbound
+
+    echo $( \
+        unbound-anchor \
+            -v \
+            -r /var/unbound/root.hints \
+            -c /var/unbound/icannbundle.pem \
+            -a /var/unbound/root.key \
+    ) | grep -q "success: the anchor is ok"
+
+    chmod +x /unbound
+    mkdir -p /var/chroot/unbound/dev/
+    cp -a /dev/random /dev/urandom /dev/null /var/chroot/unbound/dev/
+EOF
 
 EXPOSE 53/tcp
 EXPOSE 53/udp
 
-HEALTHCHECK --interval=30s --timeout=30s --start-period=10s --retries=3 CMD drill @127.0.0.1 cloudflare.com || exit 1
-
-CMD ["/unbound.sh"]
+HEALTHCHECK --interval=30s --timeout=30s --start-period=10s --retries=3 CMD ["/bin/drill", "@127.0.0.1", "cloudflare.com"]
+ENTRYPOINT ["/unbound", "-d"]
+CMD ["-c", "/etc/unbound/unbound.conf"]
