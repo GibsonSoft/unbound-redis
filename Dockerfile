@@ -91,7 +91,7 @@ RUN <<EOF
     ./configure \
         --prefix= \
         --with-chroot-dir=/var/chroot/unbound \
-        --with-pidfile=/var/run/unboud.pid \
+        --with-pidfile=/var/chroot/unbound/var/run/unbound.pid \
         --with-rootkey-file=/var/root.key \
         --with-rootcert-file=/var/icannbundle.pem \
         --with-pthreads \
