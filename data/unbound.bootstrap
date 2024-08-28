@@ -40,8 +40,8 @@ if [ ! -f /etc/unbound/unbound.conf ]; then
     chmod 444 /etc/unbound/unbound.conf.default
 fi
 
-if [ "${CONTROL_ENABLE:-false}" == "true" ]; then
-    /sbin/docker-control-setup -d /var/unbound
+if [ "${CONTROL_ENABLE:-no}" == "yes" ]; then
+    /sbin/unbound-control-setup -d /var/unbound
 fi
 
 rm /etc/unbound/unbound.conf.template
