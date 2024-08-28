@@ -75,8 +75,8 @@ ARG ICANN_CERT
 
 COPY --from=openssl /opt/openssl /opt/openssl
 
-ADD ${ROOT_HINTS} /opt/unbound/var/unbound/root.hints
-ADD ${ICANN_CERT} /opt/unbound/var/unbound/icannbundle.pem
+ADD ${ROOT_HINTS} /var/unbound/root.hints
+ADD ${ICANN_CERT} /var/unbound/icannbundle.pem
 ADD --checksum=sha256:${UNBOUND_SHA256} ${UNBOUND_DOWNLOAD_URL} unbound.tar.gz
 
 # Ignore SC2034, Needed to static-compile unbound/ldns, per https://github.com/NLnetLabs/unbound/issues/91#issuecomment-1707544943
