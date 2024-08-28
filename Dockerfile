@@ -159,6 +159,8 @@ ENV PATH="/bin:/sbin"
 COPY --from=base /bin/busybox /lib/ld-musl*.so.1 /lib/
 COPY --from=base /etc/ssl/certs/ /etc/ssl/certs/
 
+COPY --from=openssl /opt/openssl/bin/openssl /bin/openssl
+
 COPY --from=ldns /opt/ldns/bin/drill /bin/drill
 
 COPY --from=unbound /opt/unbound/sbin/ /sbin/
