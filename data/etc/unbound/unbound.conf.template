@@ -1,7 +1,0 @@
-server:
-    include: ./etc/unbound/server.conf
-    include: ./etc/unbound/performance.conf
-    include: ./etc/unbound/logging.conf
-
-remote-control:
-    include: /etc/unbound/remote-control.conf
