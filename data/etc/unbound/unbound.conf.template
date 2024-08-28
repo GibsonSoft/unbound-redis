@@ -350,4 +350,4 @@ server:
 
 
 remote-control:
-    control-enable: no
+    control-enable: @CONTROL_ENABLE@

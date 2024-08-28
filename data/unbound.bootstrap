@@ -34,9 +34,14 @@ if [ ! -f /etc/unbound/unbound.conf ]; then
         -e "s/@RR_CACHE_SIZE@/${rr_cache_size}/" \
         -e "s/@THREADS@/${threads}/" \
         -e "s/@SLABS@/${slabs}/" \
+        -e "s/@CONTROL_ENABLE@/${CONTROL_ENABLE:-false}" \
         /etc/unbound/unbound.conf.template > /etc/unbound/unbound.conf
     cp /etc/unbound/unbound.conf /etc/unbound/unbound.conf.default
     chmod 444 /etc/unbound/unbound.conf.default
+fi
+
+if [ "${CONTROL_ENABLE:-false}" == "true" ]; then
+    exec /sbin/docker-control-setup -d /var/unbound
 fi
 
 rm /etc/unbound/unbound.conf.template

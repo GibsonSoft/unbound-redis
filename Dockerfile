@@ -131,7 +131,6 @@ COPY --from=openssl /opt/openssl /opt/openssl
 
 ADD --checksum=sha256:${LDNS_SHA256} ${LDNS_DOWNLOAD_URL} ldns.tar.gz
 
-
 # Ignore SC2034, Needed to static-compile unbound/ldns, per https://github.com/NLnetLabs/unbound/issues/91#issuecomment-1707544943
 # hadolint ignore=SC2034
 RUN <<EOF
