@@ -9,7 +9,8 @@ rrset-cache-slabs: @SLABS@
 
 msg-cache-size: @MSG_CACHE_SIZE@
 rrset-cache-size: @RR_CACHE_SIZE@
-neg-cache-size: 4M
+neg-cache-size: $NEG_CACHE_SIZE@
+key-cache-size: @KEY_CACHE_SIZE@
 
 num-queries-per-thread: 1024
 outgoing-range: 4096
