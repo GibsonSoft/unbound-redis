@@ -6,7 +6,7 @@
 # Assume we're starting fresh, set some sensible defaults
 if [ ! -f /etc/unbound/unbound.conf ]; then
     # Leave plenty of overhead for malloc (up to 2.5x of set total cache)
-    available_memory=$(printf '%.0f\n' $(echo "1024 * $(awk '/^MemTotal/ { print $2 }' /proc/meminfo) * 0.4" | bc -l))
+    available_memory=$(printf '%.0f\n' $(echo "$(awk '/^hierarchical_memory_limit/ { print $2 }' /sys/fs/cgroup/memory/memory.stat) * 0.4" | bc -l))
 
     # Don't see a lot of documentation on key and neg cache, but examples
     #   I've seen usually have key = msg and neg about 1/4 of msg
