@@ -1,3 +1,10 @@
+# DL3018: We're specifying pkgs via ARGs + want latest security updates if possible. 
+#         Will pin if there are any future issues.
+# SC2086: Not needed in the majority of cases here (like apk calls that expect a list of pkgs, not a string).
+# DL3020: A bug maybe? All these appear for ARGs with URLs in ADD statements.
+# DL3003: Not splitting up RUNs just to cd.
+# hadolint global ignore=DL3018,SC2086,DL3020,DL3003
+
 ARG ALPINE_VERSION=latest
 
 FROM alpine:${ALPINE_VERSION} AS base
@@ -5,13 +12,10 @@ ARG CORE_BUILD_DEPS
 ENV CORE_BUILD_DEPS=${CORE_BUILD_DEPS}
 
 WORKDIR /tmp/src
-SHELL ["/bin/sh", "-cexo", "pipefail"]
+SHELL ["/bin/ash", "-cexo", "pipefail"]
 
-# Ignore DL3018, we're specifying pkgs via env
-# Ignore SC2086, need to leave out double quotes to bring in deps via env
-# hadolint ignore=DL3018,SC2086
 RUN <<EOF
-    apk update
+    apk --no-cache upgrade
     apk add --no-cache ${CORE_BUILD_DEPS}
 EOF
 
@@ -25,16 +29,9 @@ ARG OPENSSL_VERSION
 ARG OPENSSL_SOURCE_FILE=openssl-${OPENSSL_VERSION}.tar.gz
 ARG OPENSSL_DOWNLOAD_URL=${OPENSSL_SOURCE}/${OPENSSL_SOURCE_FILE}
 
-# Ignore DL3020, using ADD to grab remote file. Cannot do with COPY
-# hadolint ignore=DL3020
 ADD --checksum=sha256:${OPENSSL_SHA256} ${OPENSSL_DOWNLOAD_URL} openssl.tar.gz
-# hadolint ignore=DL3020
 ADD ${OPENSSL_DOWNLOAD_URL}.asc openssl.tar.gz.asc
 
-# Ignore DL3018, we're specifying pkgs via env
-# Ignore SC2086, need to leave out double quotes to bring in deps via env
-# Ignore DL3003, only need to cd for this RUN
-# hadolint ignore=DL3003,DL3018,SC2086
 RUN <<EOF
     GNUPGHOME="$(mktemp -d)"
     export GNUPGHOME
@@ -70,22 +67,13 @@ ARG ROOT_HINTS
 ARG ICANN_CERT
 
 COPY --from=openssl /opt/openssl /opt/openssl
-COPY ./data/etc/ /opt/unbound/etc/
-COPY ./data/unbound.bootstrap /opt/unbound/unbound.bootstrap
 
-# Ignore DL3020, using ADD to grab remote file. Cannot do with COPY
-# hadolint ignore=DL3020
 ADD ${ROOT_HINTS} /opt/unbound/var/unbound/root.hints
-# hadolint ignore=DL3020
 ADD ${ICANN_CERT} /opt/unbound/var/unbound/icannbundle.pem
-# hadolint ignore=DL3020
 ADD --checksum=sha256:${UNBOUND_SHA256} ${UNBOUND_DOWNLOAD_URL} unbound.tar.gz
 
-# Ignore DL3018, we're specifying pkgs via env
-# Ignore SC2086, need to leave out double quotes to bring in deps via env
-# Ignore DL3003, only need to cd for this RUN
 # Ignore SC2034, Needed to static-compile unbound/ldns, per https://github.com/NLnetLabs/unbound/issues/91#issuecomment-1707544943
-# hadolint ignore=DL3018,SC2086,DL3003,SC2034
+# hadolint ignore=SC2034
 RUN <<EOF
     mkdir ./unbound-src
     apk add --no-cache --virtual build-deps ${UNBOUND_BUILD_DEPS}
@@ -95,7 +83,6 @@ RUN <<EOF
     addgroup -S _unbound
     adduser -S -s /dev/null -h /etc/unbound -G _unbound _unbound
     
-#   Needed to static-compile unbound, per https://github.com/NLnetLabs/unbound/issues/91#issuecomment-1707544943
     sed -e 's/@LDFLAGS@/@LDFLAGS@ -all-static/' -i Makefile.in
     LIBS="-lpthread -lm"
     LDFLAGS="-Wl,-static -static -static-libgcc"
@@ -120,9 +107,7 @@ RUN <<EOF
         --disable-rpath
     make -j install
     mv /opt/unbound/etc/unbound/unbound.conf /opt/unbound/etc/unbound/unbound.conf.example
-    rm -rf /opt/unbound/sbin/unbound-host
     find /opt/unbound/sbin -type f -exec strip '{}' \; -exec upx --best --lzma -q '{}' \;
-    chmod +x /opt/unbound/unbound.bootstrap
     apk del build-deps ${CORE_BUILD_DEPS}
 EOF
 
@@ -137,15 +122,11 @@ ARG LDNS_DOWNLOAD_URL=${LDNS_SOURCE}/${LDNS_SOURCE_FILE}
 
 COPY --from=openssl /opt/openssl /opt/openssl
 
-# Ignore DL3020, using ADD to grab remote file. Cannot do with COPY
-# hadolint ignore=DL3020
 ADD --checksum=sha256:${LDNS_SHA256} ${LDNS_DOWNLOAD_URL} ldns.tar.gz
 
-# Ignore DL3018, we're specifying pkgs via env
-# Ignore SC2086, need to leave out double quotes to bring in deps via env
-# Ignore DL3003, only need to cd for this RUN
+
 # Ignore SC2034, Needed to static-compile unbound/ldns, per https://github.com/NLnetLabs/unbound/issues/91#issuecomment-1707544943
-# hadolint ignore=DL3018,SC2086,DL3003,SC2034
+# hadolint ignore=SC2034
 RUN <<EOF
     mkdir ./ldns-src
     apk add --no-cache --virtual build-deps ${LDNS_BUILD_DEPS}
@@ -172,35 +153,36 @@ EOF
 
 FROM scratch AS final
 WORKDIR /
-SHELL ["/bin/sh", "-cexo", "pipefail"]
+SHELL ["/bin/ash", "-cexo", "pipefail"]
+ENV PATH="/bin:/sbin"
 
 COPY --from=base /bin/busybox /lib/ld-musl*.so.1 /lib/
 COPY --from=base /etc/ssl/certs/ /etc/ssl/certs/
+
 COPY --from=ldns /opt/ldns/bin/drill /bin/drill
+
 COPY --from=unbound /opt/unbound/sbin/ /sbin/
 COPY --from=unbound /opt/unbound/etc/ /var/chroot/unbound/etc/
 COPY --from=unbound /opt/unbound/var/ /var/chroot/unbound/var/
 COPY --from=unbound /etc/passwd /etc/group /etc/
-COPY --from=unbound /opt/unbound/unbound.bootstrap /unbound
 
-RUN ["/lib/busybox", "ln", "-s", "/lib/busybox", "/bin/sh"]
+COPY ./data/etc/ /var/chroot/unbound/etc/
+COPY --chmod=744 ./data/unbound.bootstrap /unbound
 
-ENV PATH="/bin:/sbin"
-ENV SH_CMDS="ln sed grep chmod chown mkdir cp awk uniq bc rm find"
+RUN ["/lib/busybox", "ln", "-s", "/lib/busybox", "/bin/ash"]
 
-# Ignore DL4006, I want /bin/sh, dammit!
 # Ignore SC2005:
-#       We're using echo/grep below because technically unbound-anchor returns code 1
-#       if creating root.key for the first time, causing the build to fail.
-#       Just make sure the anchor is actually OK first.
+#     We're using echo/grep below because technically unbound-anchor returns code 1
+#     if creating root.key for the first time, causing the build to fail.
+#     Just make sure the anchor is actually OK first.
 #
-# hadolint ignore=DL4006,SC2005
+# hadolint ignore=SC2005
 RUN <<EOF
+    SH_CMDS="ln sed grep chmod chown mkdir cp awk uniq bc rm find nproc"
+    
     for link in ${SH_CMDS}; do
-        /lib/busybox ln -s /lib/busybox /bin/"$link"
+        /lib/busybox ln -s /lib/busybox /bin/${link}
     done
-
-    unset SH_CMDS
 
     ln -s /var/chroot/unbound/var/unbound/ /var/unbound
     ln -s /var/chroot/unbound/etc/unbound/ /etc/unbound
