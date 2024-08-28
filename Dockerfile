@@ -186,7 +186,7 @@ RUN ["/lib/busybox", "ln", "-s", "/lib/busybox", "/bin/ash"]
 #
 # hadolint ignore=SC2005
 RUN <<EOF
-    SH_CMDS="ln sed grep chmod chown mkdir cp awk uniq bc rm find nproc"
+    SH_CMDS="ln sed grep chmod chown mkdir cp awk uniq bc rm find nproc sh cat"
     
     for link in ${SH_CMDS}; do
         /lib/busybox ln -s /lib/busybox /bin/${link}
