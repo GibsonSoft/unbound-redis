@@ -70,13 +70,8 @@ ARG UNBOUND_VERSION
 ARG UNBOUND_SOURCE_FILE=unbound-${UNBOUND_VERSION}.tar.gz
 ARG UNBOUND_DOWNLOAD_URL=${UNBOUND_SOURCE}/${UNBOUND_SOURCE_FILE}
 
-ARG ROOT_HINTS
-ARG ICANN_CERT
-
 COPY --from=openssl /opt/openssl /opt/openssl
 
-ADD ${ROOT_HINTS} /var/unbound/root.hints
-ADD ${ICANN_CERT} /var/unbound/icannbundle.pem
 ADD --checksum=sha256:${UNBOUND_SHA256} ${UNBOUND_DOWNLOAD_URL} unbound.tar.gz
 
 # Ignore SC2034, Needed to static-compile unbound/ldns, per https://github.com/NLnetLabs/unbound/issues/91#issuecomment-1707544943
@@ -163,6 +158,11 @@ WORKDIR /
 SHELL ["/bin/ash", "-cexo", "pipefail"]
 ENV PATH="/bin:/sbin"
 
+ARG ROOT_HINTS
+ARG ICANN_CERT
+ADD ${ROOT_HINTS} /var/chroot/unbound/var/unbound/root.hints
+ADD ${ICANN_CERT} /var/chroot/unbound/var/unbound/icannbundle.pem
+
 COPY --from=base /bin/busybox /lib/ld-musl*.so.1 /lib/
 COPY --from=base /etc/ssl/certs/ /etc/ssl/certs/
 
@@ -170,9 +170,8 @@ COPY --from=openssl /opt/openssl/bin/openssl /bin/openssl
 
 COPY --from=ldns /opt/ldns/bin/drill /bin/drill
 
-COPY --from=unbound /var/chroot/unbound/sbin/ /sbin/
-COPY --from=unbound /var/chroot/unbound/etc/ /var/chroot/unbound/etc/
-COPY --from=unbound /var/chroot/unbound/var/ /var/chroot/unbound/var/
+COPY --from=unbound /sbin/unbound* /sbin/
+COPY --from=unbound /etc/unbound/ /var/chroot/unbound/etc/unbound/
 COPY --from=unbound /etc/passwd /etc/group /etc/
 
 COPY ./data/etc/ /var/chroot/unbound/etc/
