@@ -201,11 +201,12 @@ RUN <<EOF
     echo $( \
         unbound-anchor \
             -v \
-            -r /var/unbound/root.hints \
-            -c /var/unbound/icannbundle.pem \
-            -a /var/unbound/root.key \
+            -r /var/chroot/unbound/var/root.hints \
+            -c /var/chroot/unbound/var/icannbundle.pem \
+            -a /var/chroot/unbound/var/root.key \
     ) | grep -q "success: the anchor is ok"
 
+    mkdir -p /var/chroot/unbound/var/run/
     mkdir -p /var/chroot/unbound/dev/
     cp -a /dev/random /dev/urandom /dev/null /var/chroot/unbound/dev/
 EOF
