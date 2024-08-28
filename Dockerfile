@@ -46,6 +46,12 @@ RUN <<EOF
         --prefix=/opt/openssl \
         --openssldir=/opt/openssl \
         no-ssl3 \
+        no-docs \
+        no-tests \
+        no-filenames \
+        no-legacy \
+        no-shared \
+        no-pinshared \
         enable-ec_nistp_64_gcc_128 \
         -static
     make -j
@@ -53,6 +59,7 @@ RUN <<EOF
     strip /opt/openssl/bin/openssl
     upx --best --lzma -q /opt/openssl/bin/openssl
     apk del build-deps ${CORE_BUILD_DEPS}
+    rm -rf /tmp/*
 EOF
 
 FROM base AS unbound
