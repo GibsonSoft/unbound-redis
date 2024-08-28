@@ -89,7 +89,7 @@ RUN <<EOF
     LIBS="-lpthread -lm"
     LDFLAGS="-Wl,-static -static -static-libgcc"
     ./configure \
-        --prefix=/ \
+        --prefix= \
         --with-chroot-dir=/var/chroot/unbound \
         --with-pthreads \
         --with-username=_unbound \
