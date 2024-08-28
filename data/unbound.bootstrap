@@ -44,6 +44,7 @@ if [ ! -f /etc/unbound/unbound.conf ]; then
         -e "s/@CONTROL_ENABLE@/${CONTROL_ENABLE:-no}/" \
         /etc/unbound/conf.d/remote-control.conf.template > /etc/unbound/conf.d/remote-control.conf
 
+    mv /etc/unbound/unbound.conf.new /etc/unbound/unbound.conf
     cp /etc/unbound/unbound.conf /etc/unbound/unbound.conf.default
 
     cp /etc/unbound/conf.d /etc/unbound/conf.d.default
@@ -62,7 +63,7 @@ else
     rm /sbin/unbound-control
 fi
 
-rm /etc/unbound/unbound.conf.template /etc/unbound/conf.d/*.template
+rm /etc/unbound/conf.d/*.template
 rm /sbin/unbound-control-setup
 rm /bin/openssl
 
