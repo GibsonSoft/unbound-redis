@@ -49,7 +49,7 @@ if [ ! -f /etc/unbound/unbound.conf ]; then
     mv /etc/unbound/unbound.conf.new /etc/unbound/unbound.conf
     cp /etc/unbound/unbound.conf /etc/unbound/unbound.conf.default
 
-    cp /etc/unbound/conf.d /etc/unbound/conf.d.default
+    cp -r /etc/unbound/conf.d /etc/unbound/conf.d.default
     mv /etc/unbound/conf.d.default/logging.conf /etc/unbound/conf.d.default/logging.conf.default
     mv /etc/unbound/conf.d.default/performance.conf /etc/unbound/conf.d.default/performance.conf.default
     mv /etc/unbound/conf.d.default/remote-control.conf /etc/unbound/conf.d.default/remote-control.conf.default
