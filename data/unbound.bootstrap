@@ -36,6 +36,8 @@ if [ ! -f /etc/unbound/unbound.conf ]; then
     sed \
         -e "s/@MSG_CACHE_SIZE@/${msg_cache_size}/" \
         -e "s/@RR_CACHE_SIZE@/${rr_cache_size}/" \
+        -e "s/@KEY_CACHE_SIZE@/${key_cache_size}/" \
+        -e "s/@NEG_CACHE_SIZE@/${neg_cache_size}/" \
         -e "s/@THREADS@/${threads}/" \
         -e "s/@SLABS@/${slabs}/" \
         /etc/unbound/conf.d/performance.conf.template > /etc/unbound/conf.d/performance.conf
