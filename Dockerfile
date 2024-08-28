@@ -94,7 +94,8 @@ RUN <<EOF
     LIBS="-lpthread -lm"
     LDFLAGS="-Wl,-static -static -static-libgcc"
     ./configure \
-        --prefix=/opt/unbound \
+        --prefix=/ \
+        --with-chroot-dir=/var/chroot/unbound \
         --with-pthreads \
         --with-username=_unbound \
         --with-ssl=/opt/openssl \
@@ -113,8 +114,8 @@ RUN <<EOF
         --enable-fully-static \
         --disable-rpath
     make -j install
-    mv /opt/unbound/etc/unbound/unbound.conf /opt/unbound/etc/unbound/unbound.conf.example
-    find /opt/unbound/sbin -type f -exec strip '{}' \; -exec upx --best --lzma -q '{}' \;
+    mv /etc/unbound/unbound.conf /etc/unbound/unbound.conf.example
+    find /sbin -type f -name "unbound*" -exec strip '{}' \; -exec upx --best --lzma -q '{}' \;
     apk del build-deps ${CORE_BUILD_DEPS}
 EOF
 
@@ -169,9 +170,9 @@ COPY --from=openssl /opt/openssl/bin/openssl /bin/openssl
 
 COPY --from=ldns /opt/ldns/bin/drill /bin/drill
 
-COPY --from=unbound /opt/unbound/sbin/ /sbin/
-COPY --from=unbound /opt/unbound/etc/ /var/chroot/unbound/etc/
-COPY --from=unbound /opt/unbound/var/ /var/chroot/unbound/var/
+COPY --from=unbound /var/chroot/unbound/sbin/ /sbin/
+COPY --from=unbound /var/chroot/unbound/etc/ /var/chroot/unbound/etc/
+COPY --from=unbound /var/chroot/unbound/var/ /var/chroot/unbound/var/
 COPY --from=unbound /etc/passwd /etc/group /etc/
 
 COPY ./data/etc/ /var/chroot/unbound/etc/
