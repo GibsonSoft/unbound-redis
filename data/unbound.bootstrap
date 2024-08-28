@@ -41,7 +41,7 @@ if [ ! -f /etc/unbound/unbound.conf ]; then
 fi
 
 if [ "${CONTROL_ENABLE:-false}" == "true" ]; then
-    exec /sbin/docker-control-setup -d /var/unbound
+    /sbin/docker-control-setup -d /var/unbound
 fi
 
 rm /etc/unbound/unbound.conf.template
