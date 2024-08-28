@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/ash
 
 # Performance tuning before final cleanup and run
 # See: https://unbound.docs.nlnetlabs.nl/en/latest/topics/core/performance.html
