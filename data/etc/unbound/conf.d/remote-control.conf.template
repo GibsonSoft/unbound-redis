@@ -1,0 +1,5 @@
+control-enable: @CONTROL_ENABLE@
+server-cert-file: "/var/unbound/unbound_server.pem"
+server-key-file: "/var/unbound/unbound_server.key"
+control-cert-file: "/var/unbound/unbound_control.pem"
+control-key-file: "/var/unbound/unbound_control.key"

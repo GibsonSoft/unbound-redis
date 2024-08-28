@@ -1,0 +1,22 @@
+num-threads: @THREADS@
+
+incoming-num-tcp: 10
+
+infra-cache-slabs: @SLABS@
+key-cache-slabs: @SLABS@
+msg-cache-slabs: @SLABS@
+rrset-cache-slabs: @SLABS@
+
+msg-cache-size: @MSG_CACHE_SIZE@
+rrset-cache-size: @RR_CACHE_SIZE@
+neg-cache-size: 4M
+
+num-queries-per-thread: 1024
+outgoing-range: 4096
+
+minimal-responses: yes
+prefetch: yes
+prefetch-key: yes
+serve-expired: yes
+sock-queue-timeout: 3
+so-reuseport: yes
