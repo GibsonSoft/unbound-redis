@@ -351,3 +351,5 @@ server:
 
 remote-control:
     control-enable: @CONTROL_ENABLE@
+    server-cert-file: "/var/unbound/unbound_server.pem"
+    server-key-file: "/var/unbound/unbound_server.key"
