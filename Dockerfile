@@ -70,9 +70,8 @@ ARG UNBOUND_VERSION
 ARG UNBOUND_SOURCE_FILE=unbound-${UNBOUND_VERSION}.tar.gz
 ARG UNBOUND_DOWNLOAD_URL=${UNBOUND_SOURCE}/${UNBOUND_SOURCE_FILE}
 
-COPY --from=openssl /opt/openssl /opt/openssl
-
 ADD --checksum=sha256:${UNBOUND_SHA256} ${UNBOUND_DOWNLOAD_URL} unbound.tar.gz
+COPY --from=openssl /opt/openssl /opt/openssl
 
 # Ignore SC2034, Needed to static-compile unbound/ldns, per https://github.com/NLnetLabs/unbound/issues/91#issuecomment-1707544943
 # hadolint ignore=SC2034
@@ -122,13 +121,11 @@ ARG LDNS_BUILD_DEPS
 ARG LDNS_SHA256
 ARG LDNS_SOURCE
 ARG LDNS_VERSION
-
 ARG LDNS_SOURCE_FILE=ldns-${LDNS_VERSION}.tar.gz
 ARG LDNS_DOWNLOAD_URL=${LDNS_SOURCE}/${LDNS_SOURCE_FILE}
 
-COPY --from=openssl /opt/openssl /opt/openssl
-
 ADD --checksum=sha256:${LDNS_SHA256} ${LDNS_DOWNLOAD_URL} ldns.tar.gz
+COPY --from=openssl /opt/openssl /opt/openssl
 
 # Ignore SC2034, Needed to static-compile unbound/ldns, per https://github.com/NLnetLabs/unbound/issues/91#issuecomment-1707544943
 # hadolint ignore=SC2034
@@ -160,11 +157,14 @@ FROM scratch AS final
 WORKDIR /
 SHELL ["/bin/ash", "-cexo", "pipefail"]
 ENV PATH="/bin:/sbin"
-
 ARG ROOT_HINTS
 ARG ICANN_CERT
+
 ADD ${ROOT_HINTS} /var/chroot/unbound/var/unbound/root.hints
 ADD ${ICANN_CERT} /var/chroot/unbound/var/unbound/icannbundle.pem
+
+COPY ./data/etc/ /var/chroot/unbound/etc/
+COPY --chmod=744 ./data/unbound.bootstrap /unbound
 
 COPY --from=base /bin/busybox /lib/ld-musl*.so.1 /lib/
 COPY --from=base /etc/ssl/certs/ /etc/ssl/certs/
@@ -177,11 +177,7 @@ COPY --from=unbound /sbin/unbound* /sbin/
 COPY --from=unbound /etc/unbound/ /var/chroot/unbound/etc/unbound/
 COPY --from=unbound /etc/passwd /etc/group /etc/
 
-COPY ./data/etc/ /var/chroot/unbound/etc/
-COPY --chmod=744 ./data/unbound.bootstrap /unbound
-
 RUN ["/lib/busybox", "ln", "-s", "/lib/busybox", "/bin/ash"]
-
 RUN <<EOF
     SH_CMDS="ln sed grep chmod chown mkdir cp awk uniq bc rm find nproc sh cat mv"
     
