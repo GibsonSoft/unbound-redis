@@ -112,7 +112,7 @@ RUN <<EOF
         --disable-rpath
     make -j install
     mv /etc/unbound/unbound.conf /etc/unbound/unbound.conf.example
-    find /sbin -type f -name "unbound*" -exec strip '{}' \; -exec upx --best --lzma -q '{}' \;
+    find /sbin -type f ! -name "unbound-control-setup" -name "unbound*" -exec strip '{}' \; -exec upx --best --lzma -q '{}' \;
     apk del build-deps ${CORE_BUILD_DEPS}
 EOF
 
