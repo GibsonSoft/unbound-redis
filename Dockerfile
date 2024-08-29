@@ -182,12 +182,6 @@ COPY --chmod=744 ./data/unbound.bootstrap /unbound
 
 RUN ["/lib/busybox", "ln", "-s", "/lib/busybox", "/bin/ash"]
 
-# Ignore SC2005:
-#     We're using echo/grep below because technically unbound-anchor returns code 1
-#     if creating root.key for the first time, causing the build to fail.
-#     Just make sure the anchor is actually OK first.
-#
-# hadolint ignore=SC2005
 RUN <<EOF
     SH_CMDS="ln sed grep chmod chown mkdir cp awk uniq bc rm find nproc sh cat mv"
     
@@ -197,14 +191,6 @@ RUN <<EOF
 
     ln -s /var/chroot/unbound/var/unbound/ /var/unbound
     ln -s /var/chroot/unbound/etc/unbound/ /etc/unbound
-
-    echo $( \
-        unbound-anchor \
-            -v \
-            -r /var/chroot/unbound/var/unbound/root.hints \
-            -c /var/chroot/unbound/var/unbound/icannbundle.pem \
-            -a /var/chroot/unbound/var/unbound/root.key \
-    ) | grep -q "success: the anchor is ok"
 
     mkdir -p /var/chroot/unbound/var/run/
     mkdir -p /var/chroot/unbound/dev/

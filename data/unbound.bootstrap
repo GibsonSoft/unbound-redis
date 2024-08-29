@@ -59,6 +59,14 @@ if [ ! -f /etc/unbound/unbound.conf ]; then
     chmod -R 444 /etc/unbound/conf.d.default
 fi
 
+echo $( \
+    unbound-anchor \
+        -v \
+        -r /var/unbound/root.hints \
+        -c /var/unbound/icannbundle.pem \
+        -a /var/unbound/root.key \
+) | grep -q "success: the anchor is ok"
+
 if [ "${CONTROL_ENABLE:-no}" == "yes" ]; then
     /sbin/unbound-control-setup -d /var/unbound
 else
