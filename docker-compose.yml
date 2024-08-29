@@ -1,7 +1,10 @@
 services:
   unbound:
     image: gibsonsoft/unbound-full
+    container_name: unbound
     pull_policy: never
+    environment:
+      CONTROL_ENABLE: yes
     build:
       context: .
       target: final

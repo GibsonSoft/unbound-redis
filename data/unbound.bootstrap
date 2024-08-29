@@ -3,17 +3,21 @@
 # Performance tuning before final cleanup and run
 # See: https://unbound.docs.nlnetlabs.nl/en/latest/topics/core/performance.html
 
+# Assume we're starting fresh, set some sensible defaults
 if [ ! -f /etc/unbound/unbound.conf ]; then
-    totalMemory=$((1024 * $( awk '/^MemTotal/ { print $2 }' /proc/meminfo ) ))
+    # Leave plenty of overhead for malloc (up to 2.5x of set total cache)
+    available_memory=$(printf '%.0f\n' $(echo "$(awk '/^hierarchical_memory_limit/ { print $2 }' /sys/fs/cgroup/memory/memory.stat) * 0.4" | bc -l))
 
-    # Limit available memory for unbound to 1/4 of total system available
-    availableMemory=${totalMemory}
+    # Don't see a lot of documentation on key and neg cache, but examples
+    #   I've seen usually have key = msg and neg about 1/4 of msg
+    #
+    # 4/17 is based on the following: x[msg] + x[key] + 2x[rr] + (x/4)[neg]
+    msg_cache_size=$(printf '%.0f\n' $(echo "${available_memory} * (4 / 17)" | bc -l))
+    key_cache_size=${msg_cache_size}
+    rr_cache_size=$(( ${msg_cache_size} * 2 ))
+    neg_cache_size=$(printf '%.0f\n' $(echo "${msg_cache_size} / 4" | bc -l))
 
-    # Use roughly twice as much rrset cache memory as msg cache memory
-    rr_cache_size=$((${availableMemory} / 3))
-    msg_cache_size=$((${rr_cache_size} / 2))
-
-    # Use # of CPUs/threads to calculate threads and slabs
+    # Use # of available CPUs to calculate threads and slabs
     nproc=$(nproc)
     if [ "${nproc}" -gt 1 ]; then
         threads=${nproc}
@@ -32,14 +36,46 @@ if [ ! -f /etc/unbound/unbound.conf ]; then
     sed \
         -e "s/@MSG_CACHE_SIZE@/${msg_cache_size}/" \
         -e "s/@RR_CACHE_SIZE@/${rr_cache_size}/" \
+        -e "s/@KEY_CACHE_SIZE@/${key_cache_size}/" \
+        -e "s/@NEG_CACHE_SIZE@/${neg_cache_size}/" \
         -e "s/@THREADS@/${threads}/" \
         -e "s/@SLABS@/${slabs}/" \
-        /etc/unbound/unbound.conf.template > /etc/unbound/unbound.conf
+        /etc/unbound/conf.d/performance.conf.template > /etc/unbound/conf.d/performance.conf
+
+    sed \
+        -e "s/@CONTROL_ENABLE@/${CONTROL_ENABLE:-no}/" \
+        /etc/unbound/conf.d/remote-control.conf.template > /etc/unbound/conf.d/remote-control.conf
+
+    mv /etc/unbound/unbound.conf.new /etc/unbound/unbound.conf
     cp /etc/unbound/unbound.conf /etc/unbound/unbound.conf.default
+
+    cp -r /etc/unbound/conf.d /etc/unbound/conf.d.default
+    mv /etc/unbound/conf.d.default/logging.conf /etc/unbound/conf.d.default/logging.conf.default
+    mv /etc/unbound/conf.d.default/performance.conf /etc/unbound/conf.d.default/performance.conf.default
+    mv /etc/unbound/conf.d.default/remote-control.conf /etc/unbound/conf.d.default/remote-control.conf.default
+    mv /etc/unbound/conf.d.default/server.conf /etc/unbound/conf.d.default/server.conf.default
+
     chmod 444 /etc/unbound/unbound.conf.default
+    chmod -R 444 /etc/unbound/conf.d.default
 fi
 
-rm /etc/unbound/unbound.conf.template
+echo $( \
+    unbound-anchor \
+        -v \
+        -r /var/unbound/root.hints \
+        -c /var/unbound/icannbundle.pem \
+        -a /var/unbound/root.key \
+) | grep -q "success: the anchor is ok"
+
+if [ "${CONTROL_ENABLE:-no}" == "yes" ]; then
+    /sbin/unbound-control-setup -d /var/unbound
+else
+    rm /sbin/unbound-control
+fi
+
+rm /etc/unbound/conf.d/*.template
+rm /sbin/unbound-control-setup
+rm /bin/openssl
 
 chown -R _unbound:_unbound /var/chroot/unbound/
 chown root:root /var/unbound/root.hints /var/unbound/icannbundle.pem
@@ -49,7 +85,6 @@ rm /unbound
 ln -s /sbin/unbound /unbound
 
 find /bin -type l -delete
-
 /lib/busybox rm -rf /lib
 
 exec /sbin/unbound "$@"

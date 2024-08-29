@@ -46,6 +46,12 @@ RUN <<EOF
         --prefix=/opt/openssl \
         --openssldir=/opt/openssl \
         no-ssl3 \
+        no-docs \
+        no-tests \
+        no-filenames \
+        no-legacy \
+        no-shared \
+        no-pinshared \
         enable-ec_nistp_64_gcc_128 \
         -static
     make -j
@@ -53,6 +59,7 @@ RUN <<EOF
     strip /opt/openssl/bin/openssl
     upx --best --lzma -q /opt/openssl/bin/openssl
     apk del build-deps ${CORE_BUILD_DEPS}
+    rm -rf /tmp/*
 EOF
 
 FROM base AS unbound
@@ -63,14 +70,8 @@ ARG UNBOUND_VERSION
 ARG UNBOUND_SOURCE_FILE=unbound-${UNBOUND_VERSION}.tar.gz
 ARG UNBOUND_DOWNLOAD_URL=${UNBOUND_SOURCE}/${UNBOUND_SOURCE_FILE}
 
-ARG ROOT_HINTS
-ARG ICANN_CERT
-
-COPY --from=openssl /opt/openssl /opt/openssl
-
-ADD ${ROOT_HINTS} /opt/unbound/var/unbound/root.hints
-ADD ${ICANN_CERT} /opt/unbound/var/unbound/icannbundle.pem
 ADD --checksum=sha256:${UNBOUND_SHA256} ${UNBOUND_DOWNLOAD_URL} unbound.tar.gz
+COPY --from=openssl /opt/openssl /opt/openssl
 
 # Ignore SC2034, Needed to static-compile unbound/ldns, per https://github.com/NLnetLabs/unbound/issues/91#issuecomment-1707544943
 # hadolint ignore=SC2034
@@ -87,7 +88,11 @@ RUN <<EOF
     LIBS="-lpthread -lm"
     LDFLAGS="-Wl,-static -static -static-libgcc"
     ./configure \
-        --prefix=/opt/unbound \
+        --prefix= \
+        --with-chroot-dir=/var/chroot/unbound \
+        --with-pidfile=/var/chroot/unbound/var/run/unbound.pid \
+        --with-rootkey-file=/var/root.key \
+        --with-rootcert-file=/var/icannbundle.pem \
         --with-pthreads \
         --with-username=_unbound \
         --with-ssl=/opt/openssl \
@@ -106,8 +111,8 @@ RUN <<EOF
         --enable-fully-static \
         --disable-rpath
     make -j install
-    mv /opt/unbound/etc/unbound/unbound.conf /opt/unbound/etc/unbound/unbound.conf.example
-    find /opt/unbound/sbin -type f -exec strip '{}' \; -exec upx --best --lzma -q '{}' \;
+    mv /etc/unbound/unbound.conf /etc/unbound/unbound.conf.example
+    find /sbin -type f ! -name "unbound-control-setup" -name "unbound*" -exec strip '{}' \; -exec upx --best --lzma -q '{}' \;
     apk del build-deps ${CORE_BUILD_DEPS}
 EOF
 
@@ -116,14 +121,11 @@ ARG LDNS_BUILD_DEPS
 ARG LDNS_SHA256
 ARG LDNS_SOURCE
 ARG LDNS_VERSION
-
 ARG LDNS_SOURCE_FILE=ldns-${LDNS_VERSION}.tar.gz
 ARG LDNS_DOWNLOAD_URL=${LDNS_SOURCE}/${LDNS_SOURCE_FILE}
 
-COPY --from=openssl /opt/openssl /opt/openssl
-
 ADD --checksum=sha256:${LDNS_SHA256} ${LDNS_DOWNLOAD_URL} ldns.tar.gz
-
+COPY --from=openssl /opt/openssl /opt/openssl
 
 # Ignore SC2034, Needed to static-compile unbound/ldns, per https://github.com/NLnetLabs/unbound/issues/91#issuecomment-1707544943
 # hadolint ignore=SC2034
@@ -155,30 +157,29 @@ FROM scratch AS final
 WORKDIR /
 SHELL ["/bin/ash", "-cexo", "pipefail"]
 ENV PATH="/bin:/sbin"
+ARG ROOT_HINTS
+ARG ICANN_CERT
 
-COPY --from=base /bin/busybox /lib/ld-musl*.so.1 /lib/
-COPY --from=base /etc/ssl/certs/ /etc/ssl/certs/
-
-COPY --from=ldns /opt/ldns/bin/drill /bin/drill
-
-COPY --from=unbound /opt/unbound/sbin/ /sbin/
-COPY --from=unbound /opt/unbound/etc/ /var/chroot/unbound/etc/
-COPY --from=unbound /opt/unbound/var/ /var/chroot/unbound/var/
-COPY --from=unbound /etc/passwd /etc/group /etc/
+ADD ${ROOT_HINTS} /var/chroot/unbound/var/unbound/root.hints
+ADD ${ICANN_CERT} /var/chroot/unbound/var/unbound/icannbundle.pem
 
 COPY ./data/etc/ /var/chroot/unbound/etc/
 COPY --chmod=744 ./data/unbound.bootstrap /unbound
 
-RUN ["/lib/busybox", "ln", "-s", "/lib/busybox", "/bin/ash"]
+COPY --from=base /bin/busybox /lib/ld-musl*.so.1 /lib/
+COPY --from=base /etc/ssl/certs/ /etc/ssl/certs/
 
-# Ignore SC2005:
-#     We're using echo/grep below because technically unbound-anchor returns code 1
-#     if creating root.key for the first time, causing the build to fail.
-#     Just make sure the anchor is actually OK first.
-#
-# hadolint ignore=SC2005
+COPY --from=openssl /opt/openssl/bin/openssl /bin/openssl
+
+COPY --from=ldns /opt/ldns/bin/drill /bin/drill
+
+COPY --from=unbound /sbin/unbound* /sbin/
+COPY --from=unbound /etc/unbound/ /var/chroot/unbound/etc/unbound/
+COPY --from=unbound /etc/passwd /etc/group /etc/
+
+RUN ["/lib/busybox", "ln", "-s", "/lib/busybox", "/bin/ash"]
 RUN <<EOF
-    SH_CMDS="ln sed grep chmod chown mkdir cp awk uniq bc rm find nproc"
+    SH_CMDS="ln sed grep chmod chown mkdir cp awk uniq bc rm find nproc sh cat mv"
     
     for link in ${SH_CMDS}; do
         /lib/busybox ln -s /lib/busybox /bin/${link}
@@ -187,14 +188,7 @@ RUN <<EOF
     ln -s /var/chroot/unbound/var/unbound/ /var/unbound
     ln -s /var/chroot/unbound/etc/unbound/ /etc/unbound
 
-    echo $( \
-        unbound-anchor \
-            -v \
-            -r /var/unbound/root.hints \
-            -c /var/unbound/icannbundle.pem \
-            -a /var/unbound/root.key \
-    ) | grep -q "success: the anchor is ok"
-
+    mkdir -p /var/chroot/unbound/var/run/
     mkdir -p /var/chroot/unbound/dev/
     cp -a /dev/random /dev/urandom /dev/null /var/chroot/unbound/dev/
 EOF
