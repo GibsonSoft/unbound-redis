@@ -24,16 +24,21 @@ services:
         #                   # 2. remove enable-ec_nistp_64_gcc_128 from openssl compile
       args:
         ALPINE_VERSION: 3.20.2
+        XX_VERSION: 1.5.0
+        
         CORE_BUILD_DEPS: >
-          binutils
-          gcc
-          libgcc
+          binutils-cross
+          clang
           make
-          musl-dev
-          linux-headers
           perl
           file
           upx
+
+        TARGET_BUILD_DEPS: >
+          gcc
+          libgcc
+          musl-dev
+          linux-headers
         
         LDNS_BUILD_DEPS: >
           libtool

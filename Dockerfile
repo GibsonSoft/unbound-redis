@@ -6,23 +6,38 @@
 # hadolint global ignore=DL3018,SC2086,DL3020,DL3003
 
 ARG ALPINE_VERSION=latest
+ARG XX_VERSION=latest
 
+FROM --platform=${BUILDPLATFORM} tonistiigi/xx:${XX_VERSION} AS xx
 FROM --platform=${BUILDPLATFORM} alpine:${ALPINE_VERSION} AS base
 ARG CORE_BUILD_DEPS
 ENV CORE_BUILD_DEPS=${CORE_BUILD_DEPS}
+ENV XX_CC_PREFER_LINKER=ld
+ENV CC=xx-clang
 
 WORKDIR /tmp/src
 SHELL ["/bin/ash", "-cexo", "pipefail"]
 
+COPY --from=xx / /
+
 RUN <<EOF
-    apk --no-cache upgrade
-    apk add --no-cache ${CORE_BUILD_DEPS}
+    apk --no-cache upgrade 
+    # apk is stupid and gives an error about overwriting binutils because of binutils-cross
+    # I'm pretty sure it's OK...
+    apk add --force-overwrite --no-cache ${CORE_BUILD_DEPS}
 EOF
 
-FROM base AS openssl
+FROM base AS target-base
+ARG TARGETPLATFORM
+ARG TARGET_BUILD_DEPS
+
+RUN <<EOF
+    xx-info env # Prevent docker build bug that spams console when apk line w/ variable is first
+    xx-apk add --no-cache ${TARGET_BUILD_DEPS}
+EOF
+
+FROM target-base AS openssl
 SHELL ["/bin/ash", "-cexo", "pipefail"]
-ARG TARGETOS
-ARG TARGETARCH
 
 ARG OPENSSL_BUILD_DEPS
 ARG OPENSSL_OPGP_KEYS
@@ -39,15 +54,6 @@ ADD ${OPENSSL_DOWNLOAD_URL}.asc openssl.tar.gz.asc
 RUN <<EOF
     GNUPGHOME="$(mktemp -d)"
     export GNUPGHOME
-    TARGET_BUILD="${TARGETOS}-${TARGETARCH}"
-    OPENSSL_TARGET=$(echo ${TARGET_BUILD} | sed \
-        -e "s/\<linux-amd64\>/linux-x86_64/" \
-        -e "s/\<linux-arm\>/linux-armv4/" \
-        -e "s/\<linux-arm64\>/linux-aarch64/" \
-        -e "s/\<linux-ppc64le\>/linux-ppc64le/" \
-        -e "s/\<linux-386\>/linux-generic32/" \
-        -e "s/\<linux-riscv64\>/linux64-riscv64/" \
-        -e "s/\<linux-s390x\>/linux32-s390x/")
     apk add --no-cache --virtual build-deps ${OPENSSL_BUILD_DEPS}
     gpg --no-tty --keyserver keyserver.ubuntu.com --recv-keys ${OPENSSL_OPGP_KEYS}
     gpg --batch --verify openssl.tar.gz.asc openssl.tar.gz
@@ -55,7 +61,8 @@ RUN <<EOF
     tar -xzf openssl.tar.gz --strip-components=1 -C ./openssl-src
     rm -f openssl.tar.gz openssl.tar.gz.asc
     cd ./openssl-src || exit
-    ./Configure ${OPENSSL_TARGET} \
+
+    ./Configure $(xx-info os)-$(xx-info march) \
         --prefix=/opt/openssl \
         --openssldir=/opt/openssl \
         no-ssl3 \
@@ -69,8 +76,9 @@ RUN <<EOF
         -static
     make -j
     make -j install_sw
-    strip /opt/openssl/bin/openssl
+    $(xx-info triple)-strip /opt/openssl/bin/openssl
     upx --best --lzma -q /opt/openssl/bin/openssl
+    xx-apk del ${TARGET_BUILD_DEPS}
     apk del build-deps ${CORE_BUILD_DEPS}
     rm -rf /tmp/*
 EOF
