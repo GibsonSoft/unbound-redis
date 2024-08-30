@@ -8,6 +8,20 @@ services:
     build:
       context: .
       target: final
+      platforms:
+        - linux/amd64
+        - linux/arm64/v8
+        - linux/ppc64le
+        # - linux/arm/v6    # need to remove enable-ec_nistp_64_gcc_128 from openssl compile
+        # - linux/arm/v7    # need to remove enable-ec_nistp_64_gcc_128 from openssl compile
+        #
+        # - linux/386       # 1. need to remove enable-ec_nistp_64_gcc_128 from openssl compile
+        #                   # 2. need to add -m32 linux-generic32 to openssl compile
+        #
+        # - linux/riscv64   # remove upx dependency, doesn't yet support riscv
+        #
+        # - linux/s390x     # 1. remove upx dependency, no stubs available for s390x
+        #                   # 2. remove enable-ec_nistp_64_gcc_128 from openssl compile
       args:
         ALPINE_VERSION: 3.20.2
         CORE_BUILD_DEPS: >
