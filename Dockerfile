@@ -7,7 +7,7 @@
 
 ARG ALPINE_VERSION=latest
 
-FROM alpine:${ALPINE_VERSION} AS base
+FROM --platform=${BUILDPLATFORM} alpine:${ALPINE_VERSION} AS base
 ARG CORE_BUILD_DEPS
 ENV CORE_BUILD_DEPS=${CORE_BUILD_DEPS}
 
@@ -20,6 +20,10 @@ RUN <<EOF
 EOF
 
 FROM base AS openssl
+SHELL ["/bin/ash", "-cexo", "pipefail"]
+ARG TARGETOS
+ARG TARGETARCH
+
 ARG OPENSSL_BUILD_DEPS
 ARG OPENSSL_OPGP_KEYS
 ARG OPENSSL_SHA256
@@ -35,6 +39,15 @@ ADD ${OPENSSL_DOWNLOAD_URL}.asc openssl.tar.gz.asc
 RUN <<EOF
     GNUPGHOME="$(mktemp -d)"
     export GNUPGHOME
+    TARGET_BUILD="${TARGETOS}-${TARGETARCH}"
+    OPENSSL_TARGET=$(echo ${TARGET_BUILD} | sed \
+        -e "s/\<linux-amd64\>/linux-x86_64/" \
+        -e "s/\<linux-arm\>/linux-armv4/" \
+        -e "s/\<linux-arm64\>/linux-aarch64/" \
+        -e "s/\<linux-ppc64le\>/linux-ppc64le/" \
+        -e "s/\<linux-386\>/linux-generic32/" \
+        -e "s/\<linux-riscv64\>/linux64-riscv64/" \
+        -e "s/\<linux-s390x\>/linux32-s390x/")
     apk add --no-cache --virtual build-deps ${OPENSSL_BUILD_DEPS}
     gpg --no-tty --keyserver keyserver.ubuntu.com --recv-keys ${OPENSSL_OPGP_KEYS}
     gpg --batch --verify openssl.tar.gz.asc openssl.tar.gz
@@ -42,7 +55,7 @@ RUN <<EOF
     tar -xzf openssl.tar.gz --strip-components=1 -C ./openssl-src
     rm -f openssl.tar.gz openssl.tar.gz.asc
     cd ./openssl-src || exit
-    ./Configure \
+    ./Configure ${OPENSSL_TARGET} \
         --prefix=/opt/openssl \
         --openssldir=/opt/openssl \
         no-ssl3 \
@@ -63,6 +76,9 @@ RUN <<EOF
 EOF
 
 FROM base AS unbound
+SHELL ["/bin/ash", "-cexo", "pipefail"]
+ARG TARGETPLATFORM
+
 ARG UNBOUND_BUILD_DEPS
 ARG UNBOUND_SHA256
 ARG UNBOUND_SOURCE
@@ -76,6 +92,15 @@ COPY --from=openssl /opt/openssl /opt/openssl
 # Ignore SC2034, Needed to static-compile unbound/ldns, per https://github.com/NLnetLabs/unbound/issues/91#issuecomment-1707544943
 # hadolint ignore=SC2034
 RUN <<EOF
+    UNBOUND_TARGET=$(echo ${TARGETPLATFORM} | sed \
+        -e "s/\<linux\/amd64\>/x86_64-pc-linux-musl/" \
+        -e "s/\<linux\/arm\/v6\>/armv6l-unknown-linux-musleabihf/" \
+        -e "s/\<linux\/arm\/v7\>/armv7l-unknown-linux-musleabihf/" \
+        -e "s/\<linux\/arm64\/v8\>/aarch64-unknown-linux-musl/" \
+        -e "s/\<linux\/ppc64le\>/powerpc64le-unknown-linux-musl/" \
+        -e "s/\<linux\/386\>/i386-pc-linux-musl/" \
+        -e "s/\<linux\/riscv64\>/riscv64-unknown-linux-musl/" \
+        -e "s/\<linux\/s390x\>/s390x-ibm-linux-musl/")
     mkdir ./unbound-src
     apk add --no-cache --virtual build-deps ${UNBOUND_BUILD_DEPS}
     tar -xzf unbound.tar.gz --strip-components=1 -C ./unbound-src
@@ -88,6 +113,7 @@ RUN <<EOF
     LIBS="-lpthread -lm"
     LDFLAGS="-Wl,-static -static -static-libgcc"
     ./configure \
+        --host=${UNBOUND_TARGET} \
         --prefix= \
         --with-chroot-dir=/var/chroot/unbound \
         --with-pidfile=/var/chroot/unbound/var/run/unbound.pid \
@@ -117,6 +143,9 @@ RUN <<EOF
 EOF
 
 FROM base AS ldns
+SHELL ["/bin/ash", "-cexo", "pipefail"]
+ARG TARGETPLATFORM
+
 ARG LDNS_BUILD_DEPS
 ARG LDNS_SHA256
 ARG LDNS_SOURCE
@@ -130,6 +159,15 @@ COPY --from=openssl /opt/openssl /opt/openssl
 # Ignore SC2034, Needed to static-compile unbound/ldns, per https://github.com/NLnetLabs/unbound/issues/91#issuecomment-1707544943
 # hadolint ignore=SC2034
 RUN <<EOF
+    LDNS_TARGET=$(echo ${TARGETPLATFORM} | sed \
+        -e "s/\<linux\/amd64\>/x86_64-pc-linux-musl/" \
+        -e "s/\<linux\/arm\/v6\>/armv6l-unknown-linux-musleabihf/" \
+        -e "s/\<linux\/arm\/v7\>/armv7l-unknown-linux-musleabihf/" \
+        -e "s/\<linux\/arm64\/v8\>/aarch64-unknown-linux-musl/" \
+        -e "s/\<linux\/ppc64le\>/powerpc64le-unknown-linux-musl/" \
+        -e "s/\<linux\/386\>/i386-pc-linux-musl/" \
+        -e "s/\<linux\/riscv64\>/riscv64-unknown-linux-musl/" \
+        -e "s/\<linux\/s390x\>/s390x-ibm-linux-musl/")
     mkdir ./ldns-src
     apk add --no-cache --virtual build-deps ${LDNS_BUILD_DEPS}
     tar -xzf ldns.tar.gz --strip-components=1 -C ./ldns-src
@@ -141,6 +179,7 @@ RUN <<EOF
     LIBS="-lpthread -lm"
     LDFLAGS="-Wl,-static -static -static-libgcc -no-pie"
     ./configure \
+        --host=${LDNS_TARGET} \
         --prefix=/opt/ldns \
         --with-ssl=/opt/openssl \
         --with-drill \

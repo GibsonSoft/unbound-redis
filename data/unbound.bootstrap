@@ -1,8 +1,11 @@
 #!/bin/ash
+# shellcheck disable=SC1017
+# SC1017: Git commits as UNIX-style endings, can ignore
+echo "Starting bootstrap" # Apparantly shellcheck won't shut up until the first non-comment...
 
 # Performance tuning before final cleanup and run
 # See: https://unbound.docs.nlnetlabs.nl/en/latest/topics/core/performance.html
-
+#
 # Assume we're starting fresh, set some sensible defaults
 if [ ! -f /etc/unbound/unbound.conf ]; then
     # Leave plenty of overhead for malloc (up to 2.5x of set total cache)
