@@ -77,8 +77,6 @@ RUN <<EOF
         -static
     make -j
     make -j install_sw
-    $(xx-info triple)-strip /opt/openssl/bin/openssl
-    upx --best --lzma -q /opt/openssl/bin/openssl
     xx-apk del ${TARGET_BUILD_DEPS}
     apk del build-deps ${CORE_BUILD_DEPS}
     rm -rf /tmp/*
@@ -108,7 +106,6 @@ RUN <<EOF
     addgroup -S _unbound
     adduser -S -s /dev/null -h /etc/unbound -G _unbound _unbound
     
-
     sed -e 's/@LDFLAGS@/@LDFLAGS@ -all-static/' -i Makefile.in
     LIBS="-lpthread -lm"
     LDFLAGS="-Wl,-static -static -static-libgcc"
@@ -144,7 +141,6 @@ RUN <<EOF
         --disable-rpath
     make -j install
     mv /etc/unbound/unbound.conf /etc/unbound/unbound.conf.example
-    find /sbin -type f ! -name "unbound-control-setup" -name "unbound*" -exec $(xx-info triple)-strip '{}' \; -exec upx --best --lzma -q '{}' \;
     xx-apk del ${TARGET_BUILD_DEPS}
     apk del build-deps ${CORE_BUILD_DEPS}
     rm -rf /tmp/*
@@ -185,8 +181,6 @@ RUN <<EOF
         --enable-static
     make -j
     make -j install
-    $(xx-info triple)-strip /opt/ldns/bin/drill
-    upx --best --lzma -q /opt/ldns/bin/drill
     xx-apk del ${TARGET_BUILD_DEPS}
     apk del build-deps ${CORE_BUILD_DEPS}
     rm -rf /tmp/*
