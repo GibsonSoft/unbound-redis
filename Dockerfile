@@ -177,7 +177,7 @@ RUN <<EOF
         --enable-static
     make -j
     make -j install
-    $(xx-info triple)-strip
+    $(xx-info triple)-strip /opt/ldns/bin/drill
     upx --best --lzma -q /opt/ldns/bin/drill
     xx-apk del ${TARGET_BUILD_DEPS}
     apk del build-deps ${CORE_BUILD_DEPS}
