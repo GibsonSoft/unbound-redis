@@ -9,7 +9,7 @@ ARG ALPINE_VERSION=latest
 ARG XX_VERSION=latest
 
 FROM --platform=${BUILDPLATFORM} tonistiigi/xx:${XX_VERSION} AS xx
-FROM --platform=${BUILDPLATFORM} alpine:${ALPINE_VERSION} AS base
+FROM --platform=${BUILDPLATFORM} alpine:${ALPINE_VERSION} AS core-base
 ARG CORE_BUILD_DEPS
 ENV CORE_BUILD_DEPS=${CORE_BUILD_DEPS}
 ENV XX_CC_PREFER_LINKER=ld
@@ -27,7 +27,7 @@ RUN <<EOF
     apk add --force-overwrite --no-cache ${CORE_BUILD_DEPS}
 EOF
 
-FROM base AS target-base
+FROM core-base AS target-base
 ARG TARGETPLATFORM
 ARG TARGET_BUILD_DEPS
 
@@ -83,9 +83,8 @@ RUN <<EOF
     rm -rf /tmp/*
 EOF
 
-FROM base AS unbound
+FROM target-base AS unbound
 SHELL ["/bin/ash", "-cexo", "pipefail"]
-ARG TARGETPLATFORM
 
 ARG UNBOUND_BUILD_DEPS
 ARG UNBOUND_SHA256
@@ -100,15 +99,6 @@ COPY --from=openssl /opt/openssl /opt/openssl
 # Ignore SC2034, Needed to static-compile unbound/ldns, per https://github.com/NLnetLabs/unbound/issues/91#issuecomment-1707544943
 # hadolint ignore=SC2034
 RUN <<EOF
-    UNBOUND_TARGET=$(echo ${TARGETPLATFORM} | sed \
-        -e "s/\<linux\/amd64\>/x86_64-pc-linux-musl/" \
-        -e "s/\<linux\/arm\/v6\>/armv6l-unknown-linux-musleabihf/" \
-        -e "s/\<linux\/arm\/v7\>/armv7l-unknown-linux-musleabihf/" \
-        -e "s/\<linux\/arm64\/v8\>/aarch64-unknown-linux-musl/" \
-        -e "s/\<linux\/ppc64le\>/powerpc64le-unknown-linux-musl/" \
-        -e "s/\<linux\/386\>/i386-pc-linux-musl/" \
-        -e "s/\<linux\/riscv64\>/riscv64-unknown-linux-musl/" \
-        -e "s/\<linux\/s390x\>/s390x-ibm-linux-musl/")
     mkdir ./unbound-src
     apk add --no-cache --virtual build-deps ${UNBOUND_BUILD_DEPS}
     tar -xzf unbound.tar.gz --strip-components=1 -C ./unbound-src
@@ -121,7 +111,7 @@ RUN <<EOF
     LIBS="-lpthread -lm"
     LDFLAGS="-Wl,-static -static -static-libgcc"
     ./configure \
-        --host=${UNBOUND_TARGET} \
+        --host=$(xx-clang --print-target-triple) \
         --prefix= \
         --with-chroot-dir=/var/chroot/unbound \
         --with-pidfile=/var/chroot/unbound/var/run/unbound.pid \
@@ -146,11 +136,13 @@ RUN <<EOF
         --disable-rpath
     make -j install
     mv /etc/unbound/unbound.conf /etc/unbound/unbound.conf.example
-    find /sbin -type f ! -name "unbound-control-setup" -name "unbound*" -exec strip '{}' \; -exec upx --best --lzma -q '{}' \;
+    find /sbin -type f ! -name "unbound-control-setup" -name "unbound*" -exec $(xx-info triple)-strip '{}' \; -exec upx --best --lzma -q '{}' \;
+    xx-apk del ${TARGET_BUILD_DEPS}
     apk del build-deps ${CORE_BUILD_DEPS}
+    rm -rf /tmp/*
 EOF
 
-FROM base AS ldns
+FROM target-base AS ldns
 SHELL ["/bin/ash", "-cexo", "pipefail"]
 ARG TARGETPLATFORM
 
@@ -167,27 +159,17 @@ COPY --from=openssl /opt/openssl /opt/openssl
 # Ignore SC2034, Needed to static-compile unbound/ldns, per https://github.com/NLnetLabs/unbound/issues/91#issuecomment-1707544943
 # hadolint ignore=SC2034
 RUN <<EOF
-    LDNS_TARGET=$(echo ${TARGETPLATFORM} | sed \
-        -e "s/\<linux\/amd64\>/x86_64-pc-linux-musl/" \
-        -e "s/\<linux\/arm\/v6\>/armv6l-unknown-linux-musleabihf/" \
-        -e "s/\<linux\/arm\/v7\>/armv7l-unknown-linux-musleabihf/" \
-        -e "s/\<linux\/arm64\/v8\>/aarch64-unknown-linux-musl/" \
-        -e "s/\<linux\/ppc64le\>/powerpc64le-unknown-linux-musl/" \
-        -e "s/\<linux\/386\>/i386-pc-linux-musl/" \
-        -e "s/\<linux\/riscv64\>/riscv64-unknown-linux-musl/" \
-        -e "s/\<linux\/s390x\>/s390x-ibm-linux-musl/")
     mkdir ./ldns-src
     apk add --no-cache --virtual build-deps ${LDNS_BUILD_DEPS}
     tar -xzf ldns.tar.gz --strip-components=1 -C ./ldns-src
     rm -f ldns.tar.gz
     cd ./ldns-src || exit
     
-#   Needed to static-compile LDNS, per https://github.com/NLnetLabs/unbound/issues/91#issuecomment-1707544943
     sed -e 's/@LDFLAGS@/@LDFLAGS@ -all-static/' -i Makefile.in
     LIBS="-lpthread -lm"
-    LDFLAGS="-Wl,-static -static -static-libgcc -no-pie"
+    LDFLAGS="-Wl,-static -static -static-libgcc"
     ./configure \
-        --host=${LDNS_TARGET} \
+        --host=$(xx-clang --print-target-triple) \
         --prefix=/opt/ldns \
         --with-ssl=/opt/openssl \
         --with-drill \
@@ -195,9 +177,11 @@ RUN <<EOF
         --enable-static
     make -j
     make -j install
-    strip /opt/ldns/bin/drill
+    $(xx-info triple)-strip
     upx --best --lzma -q /opt/ldns/bin/drill
+    xx-apk del ${TARGET_BUILD_DEPS}
     apk del build-deps ${CORE_BUILD_DEPS}
+    rm -rf /tmp/*
 EOF
 
 FROM scratch AS final
