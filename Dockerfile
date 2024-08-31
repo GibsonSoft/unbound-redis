@@ -77,8 +77,8 @@ RUN <<EOF
         -static
     make -j
     make -j install_sw
-    xx-apk del ${TARGET_BUILD_DEPS}
-    apk del build-deps ${CORE_BUILD_DEPS}
+    xx-apk del build-deps ${TARGET_BUILD_DEPS}
+    apk del ${CORE_BUILD_DEPS}
     rm -rf /tmp/*
 EOF
 
@@ -141,8 +141,8 @@ RUN <<EOF
         --disable-rpath
     make -j install
     mv /etc/unbound/unbound.conf /etc/unbound/unbound.conf.example
-    xx-apk del ${TARGET_BUILD_DEPS}
-    apk del build-deps ${CORE_BUILD_DEPS}
+    xx-apk del build-deps ${TARGET_BUILD_DEPS}
+    apk del ${CORE_BUILD_DEPS}
     rm -rf /tmp/*
 EOF
 
@@ -181,8 +181,8 @@ RUN <<EOF
         --enable-static
     make -j
     make -j install
-    xx-apk del ${TARGET_BUILD_DEPS}
-    apk del build-deps ${CORE_BUILD_DEPS}
+    xx-apk del build-deps ${TARGET_BUILD_DEPS}
+    apk del ${CORE_BUILD_DEPS}
     rm -rf /tmp/*
 EOF
 
