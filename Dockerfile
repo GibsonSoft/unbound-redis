@@ -13,6 +13,7 @@ FROM --platform=${BUILDPLATFORM} alpine:${ALPINE_VERSION} AS core-base
 ARG CORE_BUILD_DEPS
 ENV CORE_BUILD_DEPS=${CORE_BUILD_DEPS}
 ENV XX_CC_PREFER_LINKER=ld
+ENV XX_CC_PREFER_STATIC_LINKER=ld
 ENV CC=xx-clang
 
 WORKDIR /tmp/src
@@ -107,9 +108,12 @@ RUN <<EOF
     addgroup -S _unbound
     adduser -S -s /dev/null -h /etc/unbound -G _unbound _unbound
     
+
     sed -e 's/@LDFLAGS@/@LDFLAGS@ -all-static/' -i Makefile.in
     LIBS="-lpthread -lm"
     LDFLAGS="-Wl,-static -static -static-libgcc"
+    QEMU_LD_PREFIX=$(xx-info sysroot)
+    export QEMU_LD_PREFIX
     ./configure \
         --host=$(xx-clang --print-target-triple) \
         --prefix= \
@@ -120,8 +124,12 @@ RUN <<EOF
         --with-pthreads \
         --with-username=_unbound \
         --with-ssl=/opt/openssl \
-        --with-libevent \
-        --with-libnghttp2 \
+        --with-libevent=$(xx-info sysroot)/usr/ \
+        --with-libexpat=$(xx-info sysroot)/usr/ \
+        --with-libnghttp2=$(xx-info sysroot)/usr/ \
+        --with-libhiredis=$(xx-info sysroot)/usr/ \
+        --with-libsodium=$(xx-info sysroot)/usr/ \
+        --with-protobuf-c=$(xx-info sysroot)/usr/ \
         --enable-dnstap \
         --enable-tfo-server \
         --enable-tfo-client \
