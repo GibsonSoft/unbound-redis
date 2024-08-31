@@ -27,12 +27,15 @@ services:
         XX_VERSION: 1.5.0
         
         CORE_BUILD_DEPS: >
-          binutils-cross
+          binutils
           clang
           make
           perl
           file
           upx
+          gnupg
+          flex
+          bison
 
         TARGET_BUILD_DEPS: >
           gcc
@@ -43,8 +46,7 @@ services:
         LDNS_BUILD_DEPS: >
           libtool
 
-        OPENSSL_BUILD_DEPS: >
-          gnupg
+        # OPENSSL_BUILD_DEPS: >
         
         UNBOUND_BUILD_DEPS: >
           protobuf-c-dev
@@ -57,8 +59,6 @@ services:
           nghttp2-dev
           nghttp2-static
           hiredis-dev
-          flex
-          bison
 
         # In order of appearance:
         # OpenSSL OMC
