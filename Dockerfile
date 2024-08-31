@@ -197,8 +197,8 @@ ADD ${ICANN_CERT} /var/chroot/unbound/var/unbound/icannbundle.pem
 COPY ./data/etc/ /var/chroot/unbound/etc/
 COPY --chmod=744 ./data/unbound.bootstrap /unbound
 
-COPY --from=base /bin/busybox /lib/ld-musl*.so.1 /lib/
-COPY --from=base /etc/ssl/certs/ /etc/ssl/certs/
+COPY --from=target-base /bin/busybox /lib/ld-musl*.so.1 /lib/
+COPY --from=target-base /etc/ssl/certs/ /etc/ssl/certs/
 
 COPY --from=openssl /opt/openssl/bin/openssl /bin/openssl
 
