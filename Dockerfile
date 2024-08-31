@@ -121,12 +121,12 @@ RUN <<EOF
         --with-pthreads \
         --with-username=_unbound \
         --with-ssl=/opt/openssl \
-        --with-libevent=$(xx-info sysroot)/usr/ \
-        --with-libexpat=$(xx-info sysroot)/usr/ \
-        --with-libnghttp2=$(xx-info sysroot)/usr/ \
-        --with-libhiredis=$(xx-info sysroot)/usr/ \
-        --with-libsodium=$(xx-info sysroot)/usr/ \
-        --with-protobuf-c=$(xx-info sysroot)/usr/ \
+        --with-libevent=$(xx-info sysroot)usr/ \
+        --with-libexpat=$(xx-info sysroot)usr/ \
+        --with-libnghttp2=$(xx-info sysroot)usr/ \
+        --with-libhiredis=$(xx-info sysroot)usr/ \
+        --with-libsodium=$(xx-info sysroot)usr/ \
+        --with-protobuf-c=$(xx-info sysroot)usr/ \
         --enable-dnstap \
         --enable-tfo-server \
         --enable-tfo-client \
