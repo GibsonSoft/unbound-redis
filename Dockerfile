@@ -55,7 +55,7 @@ ADD ${OPENSSL_DOWNLOAD_URL}.asc openssl.tar.gz.asc
 RUN <<EOF
     GNUPGHOME="$(mktemp -d)"
     export GNUPGHOME
-    apk add --no-cache --virtual build-deps ${OPENSSL_BUILD_DEPS}
+    xx-apk add --no-cache --virtual build-deps ${OPENSSL_BUILD_DEPS}
     gpg --no-tty --keyserver keyserver.ubuntu.com --recv-keys ${OPENSSL_OPGP_KEYS}
     gpg --batch --verify openssl.tar.gz.asc openssl.tar.gz
     mkdir ./openssl-src
@@ -99,7 +99,7 @@ COPY --from=openssl /opt/openssl /opt/openssl
 # hadolint ignore=SC2034
 RUN <<EOF
     mkdir ./unbound-src
-    apk add --no-cache --virtual build-deps ${UNBOUND_BUILD_DEPS}
+    xx-apk add --no-cache --virtual build-deps ${UNBOUND_BUILD_DEPS}
     tar -xzf unbound.tar.gz --strip-components=1 -C ./unbound-src
     rm -f unbound.tar.gz
     cd ./unbound-src || exit
@@ -164,7 +164,7 @@ COPY --from=openssl /opt/openssl /opt/openssl
 # hadolint ignore=SC2034
 RUN <<EOF
     mkdir ./ldns-src
-    apk add --no-cache --virtual build-deps ${LDNS_BUILD_DEPS}
+    xx-apk add --no-cache --virtual build-deps ${LDNS_BUILD_DEPS}
     tar -xzf ldns.tar.gz --strip-components=1 -C ./ldns-src
     rm -f ldns.tar.gz
     cd ./ldns-src || exit
