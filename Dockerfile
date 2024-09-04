@@ -17,9 +17,9 @@ ENV CORE_BUILD_DEPS=${CORE_BUILD_DEPS}
 
 ENV CC="xx-clang"
 ENV CXX="xx-clang++"
-ENV CFLAGS="-B/usr/bin/llvm"
-ENV CXXFLAGS="-B/usr/bin/llvm"
 ENV LDFLAGS="-fuse-ld=lld -rtlib=compiler-rt -unwindlib=libunwind"
+ENV XX_CC_PREFER_LINKER=lld
+ENV XX_CC_PREFER_STATIC_LINKER=lld
 
 WORKDIR /tmp/src
 SHELL ["/bin/ash", "-cexo", "pipefail"]
@@ -29,14 +29,6 @@ COPY --from=xx / /
 RUN <<EOF
     apk --no-cache upgrade 
     apk add --no-cache ${CORE_BUILD_DEPS}
-    mkdir /usr/bin/llvm
-    cd /usr/bin/llvm || exit
-    ln -s ../lld lld
-    ln -s ../llvm-ar ar
-    ln -s ../llvm-objcopy objcopy
-    ln -s ../llvm-objdump objdump
-    ln -s ../llvm-ranlib ranlib
-    ln -s ../llvm-strings string
 EOF
 
 
@@ -79,8 +71,6 @@ WORKDIR /tmp/src
 SHELL ["/bin/ash", "-cexo", "pipefail"]
 ARG TARGETPLATFORM
 ARG TARGET_BUILD_DEPS
-ENV TARGET_TRIPLE=
-ENV PKG_CONFIG=
 
 RUN <<EOF
     xx-info env # Prevent docker build bug that spams console when apk line w/ variable is first
@@ -89,7 +79,11 @@ RUN <<EOF
     xx-clang --setup-target-triple
 
     TARGET_TRIPLE=$(xx-clang --print-target-triple)
-    PKG_CONFIG=${PKG_CONFIG}-pkg-config
+    export TARGET_TRIPLE && echo "export TARGET_TRIPLE=${TARGET_TRIPLE}" >> /etc/env
+    TARGET_SYSROOT=$(xx-info sysroot)
+    export TARGET_SYSROOT && echo "export TARGET_SYSROOT=${TARGET_SYSROOT}" >> /etc/env
+    PKG_CONFIG=${TARGET_TRIPLE}-pkg-config
+    export PKG_CONFIG && echo "export PKG_CONFIG=${PKG_CONFIG}" >> /etc/env
 EOF
 
 
@@ -98,13 +92,13 @@ FROM core-base AS protobuf-c-host
 WORKDIR /tmp/src
 SHELL ["/bin/ash", "-cexo", "pipefail"]
 ARG TARGET_BUILD_DEPS
-ARG PROTOBUFC_BUILD_DEPS
+ARG PROTOBUFC_BUILD_DEPS_BUILD
 
 COPY --from=sources /tmp/src/protobuf-c.tar.gz /tmp/src/protobuf-c.tar.gz
 
 RUN <<EOF
     mkdir ./protobuf-c-src
-    xx-apk add --no-cache --virtual build-deps ${TARGET_BUILD_DEPS} ${PROTOBUFC_BUILD_DEPS}
+    apk add --no-cache --virtual build-deps ${TARGET_BUILD_DEPS} ${PROTOBUFC_BUILD_DEPS_BUILD}
     tar -xzf protobuf-c.tar.gz --strip-components=1 -C ./protobuf-c-src
     cd protobuf-c-src || exit
 
@@ -116,8 +110,7 @@ RUN <<EOF
     cp --parents -RL $(ldd /opt/protobuf-c-host/bin/protoc-gen-c | awk '{ print $3 }') /opt/protobuf-c-host/bin/lib
 
     rm -rf /tmp/*
-    xx-apk del build-deps
-    apk del ${CORE_BUILD_DEPS}
+    apk del build-deps ${CORE_BUILD_DEPS}
 EOF
 
 
@@ -125,22 +118,31 @@ EOF
 FROM target-base AS protobuf-c-target
 WORKDIR /tmp/src
 SHELL ["/bin/ash", "-cexo", "pipefail"]
-ARG PROTOBUFC_BUILD_DEPS
+ARG PROTOBUFC_BUILD_DEPS_BUILD
+ARG PROTOBUFC_BUILD_DEPS_HOST
 
 COPY --from=sources /tmp/src/protobuf-c.tar.gz /tmp/src/protobuf-c.tar.gz
 
 RUN <<EOF
+    . /etc/env
+
     mkdir ./protobuf-c-src
-    xx-apk add --no-cache --virtual build-deps ${PROTOBUFC_BUILD_DEPS}
+    apk add --no-cache --virtual build-deps-build ${PROTOBUFC_BUILD_DEPS_BUILD}
+    xx-apk add --no-cache --virtual build-deps-host ${PROTOBUFC_BUILD_DEPS_HOST}
     tar -xzf protobuf-c.tar.gz --strip-components=1 -C ./protobuf-c-src
     cd protobuf-c-src || exit
 
-    ./configure --prefix=/opt/protobuf-c-target --host=${TARGET_TRIPLE} --PKG_CONFIG=${PKG_CONFIG}
+    ./configure \
+        PROTOC=/usr/bin/protoc \
+        --with-sysroot=${TARGET_SYSROOT} \
+        --prefix=/opt/protobuf-c-target \
+        --host=${TARGET_TRIPLE} \
+        --disable-protoc
     make -j install
 
     rm -rf /tmp/*
-    xx-apk del build-deps ${TARGET_BUILD_DEPS}
-    apk del ${CORE_BUILD_DEPS}
+    xx-apk del build-deps-host ${TARGET_BUILD_DEPS}
+    apk del build-deps-build ${CORE_BUILD_DEPS}
 EOF
 
 

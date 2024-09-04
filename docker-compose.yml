@@ -29,7 +29,6 @@ services:
         CORE_BUILD_DEPS: >
           clang
           lld
-          llvm
           make
           perl
           file
@@ -40,6 +39,8 @@ services:
           pkgconf
 
         TARGET_BUILD_DEPS: >
+          g++
+          llvm
           compiler-rt
           llvm-libunwind
           llvm-libunwind-static
@@ -51,7 +52,10 @@ services:
 
         # OPENSSL_BUILD_DEPS: >
 
-        PROTOBUFC_BUILD_DEPS: >
+        PROTOBUFC_BUILD_DEPS_BUILD: >
+          protobuf-dev
+
+        PROTOBUFC_BUILD_DEPS_HOST: >
           protobuf-dev
         
         UNBOUND_BUILD_DEPS: >
