@@ -27,8 +27,9 @@ services:
         XX_VERSION: 1.5.0
         
         CORE_BUILD_DEPS: >
-          binutils
           clang
+          lld
+          llvm
           make
           perl
           file
@@ -38,8 +39,9 @@ services:
           bison
 
         TARGET_BUILD_DEPS: >
-          gcc
-          libgcc
+          compiler-rt
+          llvm-libunwind
+          llvm-libunwind-static
           musl-dev
           linux-headers
         
@@ -47,9 +49,11 @@ services:
           libtool
 
         # OPENSSL_BUILD_DEPS: >
+
+        PROTOBUFC_BUILD_DEPS: >
+          protobuf-dev
         
         UNBOUND_BUILD_DEPS: >
-          protobuf-c-dev
           expat-dev
           expat-static
           libevent-dev
@@ -76,6 +80,10 @@ services:
         OPENSSL_SHA256: 777cd596284c883375a2a7a11bf5d2786fc5413255efab20c50d6ffe6d020b7e
         OPENSSL_SOURCE: https://www.openssl.org/source/
         OPENSSL_VERSION: 3.3.1
+
+        PROTOBUFC_SHA256: 7b404c63361ed35b3667aec75cc37b54298d56dd2bcf369de3373212cc06fd98
+        PROTOBUFC_SOURCE: https://github.com/protobuf-c/protobuf-c/releases/download/
+        PROTOBUFC_VERSION: 1.5.0
 
         LDNS_SHA256: c3f72dd1036b2907e3a56e6acf9dfb2e551256b3c1bbd9787942deeeb70e7860
         LDNS_SOURCE: https://nlnetlabs.nl/downloads/ldns/

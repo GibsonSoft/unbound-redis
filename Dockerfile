@@ -12,9 +12,12 @@ FROM --platform=${BUILDPLATFORM} tonistiigi/xx:${XX_VERSION} AS xx
 FROM --platform=${BUILDPLATFORM} alpine:${ALPINE_VERSION} AS core-base
 ARG CORE_BUILD_DEPS
 ENV CORE_BUILD_DEPS=${CORE_BUILD_DEPS}
-ENV XX_CC_PREFER_LINKER=ld
-ENV XX_CC_PREFER_STATIC_LINKER=ld
-ENV CC=xx-clang
+
+ENV CC="xx-clang"
+ENV CXX="xx-clang++"
+ENV CFLAGS="-B/usr/bin/llvm"
+ENV CXXFLAGS="-B/usr/bin/llvm"
+ENV LDFLAGS="--fuse-ld=lld --rtlib=compiler-rt --unwindlib=libunwind"
 
 WORKDIR /tmp/src
 SHELL ["/bin/ash", "-cexo", "pipefail"]
@@ -23,34 +26,103 @@ COPY --from=xx / /
 
 RUN <<EOF
     apk --no-cache upgrade 
-    # apk is stupid and gives an error about overwriting binutils because of binutils-cross
-    # I'm pretty sure it's OK...
-    apk add --force-overwrite --no-cache ${CORE_BUILD_DEPS}
+    apk add --no-cache ${CORE_BUILD_DEPS}
+    mkdir /usr/bin/llvm
+    cd /usr/bin/llvm || exit
+    ln -s ../lld lld
+    ln -s ../llvm-ar ar
+    ln -s ../llvm-objcopy objcopy
+    ln -s ../llvm-objdump objdump
+    ln -s ../llvm-ranlib ranlib
+    ln -s ../llvm-strings string
 EOF
 
+
+
+FROM scratch AS sources
+WORKDIR /tmp/src
+ARG OPENSSL_SHA256
+ARG OPENSSL_SOURCE
+ARG OPENSSL_VERSION
+ARG OPENSSL_SOURCE_FILE=openssl-${OPENSSL_VERSION}.tar.gz
+ARG OPENSSL_DOWNLOAD_URL=${OPENSSL_SOURCE}/${OPENSSL_SOURCE_FILE}
+ADD --checksum=sha256:${OPENSSL_SHA256} ${OPENSSL_DOWNLOAD_URL} openssl.tar.gz
+ADD ${OPENSSL_DOWNLOAD_URL}.asc openssl.tar.gz.asc
+
+ARG UNBOUND_SHA256
+ARG UNBOUND_SOURCE
+ARG UNBOUND_VERSION
+ARG UNBOUND_SOURCE_FILE=unbound-${UNBOUND_VERSION}.tar.gz
+ARG UNBOUND_DOWNLOAD_URL=${UNBOUND_SOURCE}/${UNBOUND_SOURCE_FILE}
+ADD --checksum=sha256:${UNBOUND_SHA256} ${UNBOUND_DOWNLOAD_URL} unbound.tar.gz
+
+ARG LDNS_SHA256
+ARG LDNS_SOURCE
+ARG LDNS_VERSION
+ARG LDNS_SOURCE_FILE=ldns-${LDNS_VERSION}.tar.gz
+ARG LDNS_DOWNLOAD_URL=${LDNS_SOURCE}/${LDNS_SOURCE_FILE}
+ADD --checksum=sha256:${LDNS_SHA256} ${LDNS_DOWNLOAD_URL} ldns.tar.gz
+
+ARG PROTOBUF-C_SOURCE
+ARG PROTOBUF-C_VERSION
+ARG PROTOBUF-C_SOURCE_FILE=protobuf-c-${PROTOBUF-C_VERSION}.tar.gz
+ARG PROTOBUF-C_DOWNLOAD_URL=${PROTOBUF-C_SOURCE}/v${PROTOBUF-C_VERSION}/${PROTOBUF-C_SOURCE_FILE}
+ADD --checksum=sha256:${PROTOBUF-C_SHA256} ${PROTOBUF-C_DOWNLOAD_URL} protobuf-c.tar.gz
+
+
+
 FROM core-base AS target-base
+WORKDIR /tmp/src
+SHELL ["/bin/ash", "-cexo", "pipefail"]
 ARG TARGETPLATFORM
 ARG TARGET_BUILD_DEPS
 
 RUN <<EOF
     xx-info env # Prevent docker build bug that spams console when apk line w/ variable is first
     xx-apk add --no-cache ${TARGET_BUILD_DEPS}
+    ln -s "$(xx-info sysroot)"usr/lib/libunwind.so.1 "$(xx-info sysroot)"usr/lib/libunwind.so
 EOF
 
+
+
+FROM target-base as protobuf-c
+WORKDIR /tmp/src
+SHELL ["/bin/ash", "-cexo", "pipefail"]
+
+COPY --from=sources /tmp/src/protobuf-c.tar.gz /tmp/src/protobuf-c.tar.gz
+
+RUN <<EOF
+    mkdir ./protobuf-c-src
+    xx-apk add --no-cache --virtual build-deps ${PROTOBUFC_BUILD_DEPS}
+    tar -xzf protobuf-c.tar.gz --strip-components=1 -C ./protobuf-c-src
+    cd protobuf-c-src || exit
+    
+    ./configure CC=clang CXX=clang++ --prefix=/opt/protobuf-c
+    make -j
+    make -j install
+    cp /opt/protobuf-c/bin/protoc-c ./protoc-c
+    make clean
+
+    ./configure --prefix=/opt/protobuf-c
+    make -j
+    make -j install
+    cp ./protoc-c /opt/protobuf-c/bin/protoc-c
+
+    rm -rf /tmp/*
+    xx-apk del build-deps ${TARGET_BUILD_DEPS}
+    apk del ${CORE_BUILD_DEPS}
+EOF
+
+
+
 FROM target-base AS openssl
+WORKDIR /tmp/src
 SHELL ["/bin/ash", "-cexo", "pipefail"]
 
 ARG OPENSSL_BUILD_DEPS
 ARG OPENSSL_OPGP_KEYS
-ARG OPENSSL_SHA256
-ARG OPENSSL_SOURCE
-ARG OPENSSL_VERSION 
 
-ARG OPENSSL_SOURCE_FILE=openssl-${OPENSSL_VERSION}.tar.gz
-ARG OPENSSL_DOWNLOAD_URL=${OPENSSL_SOURCE}/${OPENSSL_SOURCE_FILE}
-
-ADD --checksum=sha256:${OPENSSL_SHA256} ${OPENSSL_DOWNLOAD_URL} openssl.tar.gz
-ADD ${OPENSSL_DOWNLOAD_URL}.asc openssl.tar.gz.asc
+COPY --from=sources /tmp/src/openssl.tar.gz /tmp/src/openssl.tar.gz.asc /tmp/src/
 
 RUN <<EOF
     GNUPGHOME="$(mktemp -d)"
@@ -82,17 +154,15 @@ RUN <<EOF
     rm -rf /tmp/*
 EOF
 
+
+
 FROM target-base AS unbound
+WORKDIR /tmp/src
 SHELL ["/bin/ash", "-cexo", "pipefail"]
 
 ARG UNBOUND_BUILD_DEPS
-ARG UNBOUND_SHA256
-ARG UNBOUND_SOURCE
-ARG UNBOUND_VERSION
-ARG UNBOUND_SOURCE_FILE=unbound-${UNBOUND_VERSION}.tar.gz
-ARG UNBOUND_DOWNLOAD_URL=${UNBOUND_SOURCE}/${UNBOUND_SOURCE_FILE}
 
-ADD --checksum=sha256:${UNBOUND_SHA256} ${UNBOUND_DOWNLOAD_URL} unbound.tar.gz
+COPY --from=sources /tmp/src/unbound.tar.gz /tmp/src/unbound.tar.gz
 COPY --from=openssl /opt/openssl /opt/openssl
 
 # Ignore SC2034, Needed to static-compile unbound/ldns, per https://github.com/NLnetLabs/unbound/issues/91#issuecomment-1707544943
@@ -146,18 +216,16 @@ RUN <<EOF
     rm -rf /tmp/*
 EOF
 
+
+
 FROM target-base AS ldns
+WORKDIR /tmp/src
 SHELL ["/bin/ash", "-cexo", "pipefail"]
 ARG TARGETPLATFORM
 
 ARG LDNS_BUILD_DEPS
-ARG LDNS_SHA256
-ARG LDNS_SOURCE
-ARG LDNS_VERSION
-ARG LDNS_SOURCE_FILE=ldns-${LDNS_VERSION}.tar.gz
-ARG LDNS_DOWNLOAD_URL=${LDNS_SOURCE}/${LDNS_SOURCE_FILE}
 
-ADD --checksum=sha256:${LDNS_SHA256} ${LDNS_DOWNLOAD_URL} ldns.tar.gz
+COPY --from=sources /tmp/src/ldns.tar.gz /tmp/src/ldns.tar.gz
 COPY --from=openssl /opt/openssl /opt/openssl
 
 # Ignore SC2034, Needed to static-compile unbound/ldns, per https://github.com/NLnetLabs/unbound/issues/91#issuecomment-1707544943
@@ -185,6 +253,8 @@ RUN <<EOF
     apk del ${CORE_BUILD_DEPS}
     rm -rf /tmp/*
 EOF
+
+
 
 FROM scratch AS final
 WORKDIR /
