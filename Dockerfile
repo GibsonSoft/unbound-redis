@@ -79,12 +79,17 @@ WORKDIR /tmp/src
 SHELL ["/bin/ash", "-cexo", "pipefail"]
 ARG TARGETPLATFORM
 ARG TARGET_BUILD_DEPS
+ENV TARGET_TRIPLE=
+ENV PKG_CONFIG=
 
 RUN <<EOF
     xx-info env # Prevent docker build bug that spams console when apk line w/ variable is first
     xx-apk add --no-cache ${TARGET_BUILD_DEPS}
     ln -s "$(xx-info sysroot)"usr/lib/libunwind.so.1 "$(xx-info sysroot)"usr/lib/libunwind.so
     xx-clang --setup-target-triple
+
+    TARGET_TRIPLE=$(xx-clang --print-target-triple)
+    PKG_CONFIG=${PKG_CONFIG}-pkg-config
 EOF
 
 
@@ -130,7 +135,7 @@ RUN <<EOF
     tar -xzf protobuf-c.tar.gz --strip-components=1 -C ./protobuf-c-src
     cd protobuf-c-src || exit
 
-    ./configure --prefix=/opt/protobuf-c-target --host=$(xx-clang --print-target-triple)
+    ./configure --prefix=/opt/protobuf-c-target --host=${TARGET_TRIPLE} --PKG_CONFIG=${PKG_CONFIG}
     make -j install
 
     rm -rf /tmp/*
