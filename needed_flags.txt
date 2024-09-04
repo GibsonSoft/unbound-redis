@@ -1,0 +1,12 @@
+CXXFLAGS=-B/usr/bin/llvm
+HOSTNAME=df59206e8d83
+SHLVL=1
+HOME=/root
+OLDPWD=/tmp/openssl-src
+LDFLAGS=-fuse-ld=lld -rtlib=compiler-rt -unwindlib=libunwind
+TERM=xterm
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+CFLAGS=-B/usr/bin/llvm -flto
+CXX=clang++
+PWD=/tmp/unbound-src
+CC=clang

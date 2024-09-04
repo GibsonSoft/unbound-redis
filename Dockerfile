@@ -19,7 +19,7 @@ ENV CC="xx-clang"
 ENV CXX="xx-clang++"
 ENV CFLAGS="-B/usr/bin/llvm"
 ENV CXXFLAGS="-B/usr/bin/llvm"
-ENV LDFLAGS="--fuse-ld=lld --rtlib=compiler-rt --unwindlib=libunwind"
+ENV LDFLAGS="-fuse-ld=lld -rtlib=compiler-rt -unwindlib=libunwind"
 
 WORKDIR /tmp/src
 SHELL ["/bin/ash", "-cexo", "pipefail"]
@@ -84,13 +84,43 @@ RUN <<EOF
     xx-info env # Prevent docker build bug that spams console when apk line w/ variable is first
     xx-apk add --no-cache ${TARGET_BUILD_DEPS}
     ln -s "$(xx-info sysroot)"usr/lib/libunwind.so.1 "$(xx-info sysroot)"usr/lib/libunwind.so
+    xx-clang --setup-target-triple
 EOF
 
 
 
-FROM target-base as protobuf-c
+FROM core-base AS protobuf-c-host
 WORKDIR /tmp/src
 SHELL ["/bin/ash", "-cexo", "pipefail"]
+ARG TARGET_BUILD_DEPS
+ARG PROTOBUFC_BUILD_DEPS
+
+COPY --from=sources /tmp/src/protobuf-c.tar.gz /tmp/src/protobuf-c.tar.gz
+
+RUN <<EOF
+    mkdir ./protobuf-c-src
+    xx-apk add --no-cache --virtual build-deps ${TARGET_BUILD_DEPS} ${PROTOBUFC_BUILD_DEPS}
+    tar -xzf protobuf-c.tar.gz --strip-components=1 -C ./protobuf-c-src
+    cd protobuf-c-src || exit
+
+    ./configure --prefix=/opt/protobuf-c-host
+    make -j install
+    mkdir /opt/protobuf-c-host/bin/lib
+
+    # Package needed libs vs depending on apk to ensure version compatability
+    cp --parents -RL $(ldd /opt/protobuf-c-host/bin/protoc-gen-c | awk '{ print $3 }') /opt/protobuf-c-host/bin/lib
+
+    rm -rf /tmp/*
+    xx-apk del build-deps
+    apk del ${CORE_BUILD_DEPS}
+EOF
+
+
+
+FROM target-base AS protobuf-c-target
+WORKDIR /tmp/src
+SHELL ["/bin/ash", "-cexo", "pipefail"]
+ARG PROTOBUFC_BUILD_DEPS
 
 COPY --from=sources /tmp/src/protobuf-c.tar.gz /tmp/src/protobuf-c.tar.gz
 
@@ -100,16 +130,8 @@ RUN <<EOF
     tar -xzf protobuf-c.tar.gz --strip-components=1 -C ./protobuf-c-src
     cd protobuf-c-src || exit
 
-    ./configure CC=clang CXX=clang++ --prefix=/opt/protobuf-c
-    make -j
+    ./configure --prefix=/opt/protobuf-c-target --host=$(xx-clang --print-target-triple)
     make -j install
-    cp /opt/protobuf-c/bin/protoc-c ./protoc-c
-    make clean
-
-    ./configure --prefix=/opt/protobuf-c
-    make -j
-    make -j install
-    cp ./protoc-c /opt/protobuf-c/bin/protoc-c
 
     rm -rf /tmp/*
     xx-apk del build-deps ${TARGET_BUILD_DEPS}
