@@ -1,3 +1,5 @@
+# syntax=docker/dockerfile:1.9.0
+
 # DL3018: We're specifying pkgs via ARGs + want latest security updates if possible. 
 #         Will pin if there are any future issues.
 # SC2086: Not needed in the majority of cases here (like apk calls that expect a list of pkgs, not a string).
@@ -96,7 +98,7 @@ RUN <<EOF
     xx-apk add --no-cache --virtual build-deps ${PROTOBUFC_BUILD_DEPS}
     tar -xzf protobuf-c.tar.gz --strip-components=1 -C ./protobuf-c-src
     cd protobuf-c-src || exit
-    
+
     ./configure CC=clang CXX=clang++ --prefix=/opt/protobuf-c
     make -j
     make -j install
