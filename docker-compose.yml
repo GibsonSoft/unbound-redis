@@ -37,6 +37,7 @@ services:
           gnupg
           flex
           bison
+          pkgconf
 
         TARGET_BUILD_DEPS: >
           compiler-rt
