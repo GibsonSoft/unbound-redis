@@ -196,10 +196,14 @@ ARG UNBOUND_BUILD_DEPS
 
 COPY --from=sources /tmp/src/unbound.tar.gz /tmp/src/unbound.tar.gz
 COPY --from=openssl /opt/openssl /opt/openssl
+COPY --from=protobuf-c-host /opt/protobuf-c-host/bin /opt/protobuf-c-host/bin
+COPY --from=protobuf-c-target /opt/protobuf-c-target /opt/protobuf-c-target
 
 # Ignore SC2034, Needed to static-compile unbound/ldns, per https://github.com/NLnetLabs/unbound/issues/91#issuecomment-1707544943
 # hadolint ignore=SC2034
 RUN <<EOF
+    . /etc/env
+
     mkdir ./unbound-src
     xx-apk add --no-cache --virtual build-deps ${UNBOUND_BUILD_DEPS}
     tar -xzf unbound.tar.gz --strip-components=1 -C ./unbound-src
@@ -207,13 +211,16 @@ RUN <<EOF
     cd ./unbound-src || exit
     addgroup -S _unbound
     adduser -S -s /dev/null -h /etc/unbound -G _unbound _unbound
+
+    for file in $(find /opt/protobuf-c-host/bin/lib/* -type f); do
+        symlinkpath=$(dirname $file | sed -e "s/\/opt\/protobuf-c-host\/bin\/lib\//\//")
+        mkdir -p $symlinkpath
+        cp -ns $file $symlinkpath/$(basename $file)
+    done
     
     sed -e 's/@LDFLAGS@/@LDFLAGS@ -all-static/' -i Makefile.in
-    LIBS="-lpthread -lm"
-    LDFLAGS="-Wl,-static -static -static-libgcc"
-    QEMU_LD_PREFIX=$(xx-info sysroot)
-    export QEMU_LD_PREFIX
     ./configure \
+        PROTOC_C=/opt/protobuf-c-host/bin/protoc-c \
         --host=$(xx-clang --print-target-triple) \
         --prefix= \
         --with-chroot-dir=/var/chroot/unbound \
@@ -223,12 +230,13 @@ RUN <<EOF
         --with-pthreads \
         --with-username=_unbound \
         --with-ssl=/opt/openssl \
-        --with-libevent=$(xx-info sysroot)usr/ \
-        --with-libexpat=$(xx-info sysroot)usr/ \
-        --with-libnghttp2=$(xx-info sysroot)usr/ \
-        --with-libhiredis=$(xx-info sysroot)usr/ \
-        --with-libsodium=$(xx-info sysroot)usr/ \
-        --with-protobuf-c=$(xx-info sysroot)usr/ \
+        --with-sysroot=${TARGET_SYSROOT} \
+        --with-libevent=${TARGET_SYSROOT}usr \
+        --with-libexpat=${TARGET_SYSROOT}usr \
+        --with-libnghttp2=${TARGET_SYSROOT}usr \
+        --with-libhiredis=${TARGET_SYSROOT}usr \
+        --with-libsodium=${TARGET_SYSROOT}usr \
+        --with-protobuf-c=/opt/protobuf-c-target \
         --enable-dnstap \
         --enable-tfo-server \
         --enable-tfo-client \
@@ -239,8 +247,7 @@ RUN <<EOF
         --disable-flto \
         --disable-shared \
         --disable-static \
-        --enable-fully-static \
-        --disable-rpath
+        --enable-fully-static
     make -j install
     mv /etc/unbound/unbound.conf /etc/unbound/unbound.conf.example
     xx-apk del build-deps ${TARGET_BUILD_DEPS}
