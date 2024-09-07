@@ -57,6 +57,10 @@ ARG LDNS_SOURCE_FILE=ldns-${LDNS_VERSION}.tar.gz
 ARG LDNS_DOWNLOAD_URL=${LDNS_SOURCE}/${LDNS_SOURCE_FILE}
 ADD --checksum=sha256:${LDNS_SHA256} ${LDNS_DOWNLOAD_URL} ldns.tar.gz
 
+ARG PROTOBUF_GIT_COMMIT
+ARG PROTOBUF_SOURCE
+ADD --keep-git-dir=true ${PROTOBUF_SOURCE}#${PROTOBUF_GIT_COMMIT} ./protobuf-src
+
 ARG PROTOBUFC_SHA256
 ARG PROTOBUFC_SOURCE
 ARG PROTOBUFC_VERSION
@@ -70,6 +74,7 @@ FROM core-base AS target-base
 WORKDIR /tmp/src
 SHELL ["/bin/ash", "-cexo", "pipefail"]
 ARG TARGETPLATFORM
+ARG TARGETARCH
 ARG TARGET_BUILD_DEPS
 
 RUN <<EOF
@@ -84,6 +89,36 @@ RUN <<EOF
     export TARGET_SYSROOT && echo "export TARGET_SYSROOT=${TARGET_SYSROOT}" >> /etc/env
     PKG_CONFIG=${TARGET_TRIPLE}-pkg-config
     export PKG_CONFIG && echo "export PKG_CONFIG=${PKG_CONFIG}" >> /etc/env
+
+    if [ ${TARGETARCH} = "ppc64le" ]; then
+        CC="xx-clang -maix64"
+        export CC && echo "export CC=${CC}" >> /etc/env
+        CXX="xx-clang++ -maix64"
+        export CXX && echo "export CXX=${CXX}" >> /etc/env
+    fi
+EOF
+
+
+
+FROM core-base AS protobuf-build
+WORKDIR /tmp/src
+SHELL ["/bin/ash", "-cexo", "pipefail"]
+ARG TARGET_BUILD_DEPS
+ARG PROTOBUF_BUILD_DEPS_BUILD
+
+COPY --from=sources /tmp/src/protobuf-src /tmp/src/protobuf-src
+
+RUN <<EOF
+    cd ./protobuf-src || exit
+    apk add --no-cache --virtual build-deps ${TARGET_BUILD_DEPS} ${PROTOBUF_BUILD_DEPS_BUILD}
+
+    git submodule update --init --recursive
+    cmake \
+        -S. \
+        -Bcmake-out \
+        -DCMAKE_INSTALL_PREFIX=/opt/protobuf-build
+    cd cmake-out || exit
+    make -j libprotobuf protoc
 EOF
 
 

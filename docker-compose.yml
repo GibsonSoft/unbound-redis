@@ -30,6 +30,8 @@ services:
           clang
           lld
           make
+          cmake
+          git
           perl
           file
           upx
@@ -52,11 +54,17 @@ services:
 
         # OPENSSL_BUILD_DEPS: >
 
-        PROTOBUFC_BUILD_DEPS_BUILD: >
-          protobuf-dev
+        PROTOBUF_BUILD_DEPS_BUILD: >
+          zlib-dev
+          zlib-static
 
-        PROTOBUFC_BUILD_DEPS_HOST: >
-          protobuf-dev
+        PROTOBUF_BUILD_DEPS_HOST: >
+          zlib-dev
+          zlib-static
+
+        # PROTOBUFC_BUILD_DEPS_BUILD: >
+
+        # PROTOBUFC_BUILD_DEPS_HOST: >
         
         UNBOUND_BUILD_DEPS: >
           expat-dev
@@ -85,6 +93,10 @@ services:
         OPENSSL_SHA256: 777cd596284c883375a2a7a11bf5d2786fc5413255efab20c50d6ffe6d020b7e
         OPENSSL_SOURCE: https://www.openssl.org/source/
         OPENSSL_VERSION: 3.3.1
+
+        PROTOBUF_GIT_HASH: 439c42c735ae1efed57ab7771986f2a3c0b99319
+        PROTOBUF_SOURCE: https://github.com/protocolbuffers/protobuf.git
+        PROTOBUF_VERSION: 28.0
 
         PROTOBUFC_SHA256: 7b404c63361ed35b3667aec75cc37b54298d56dd2bcf369de3373212cc06fd98
         PROTOBUFC_SOURCE: https://github.com/protobuf-c/protobuf-c/releases/download/
