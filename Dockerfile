@@ -63,12 +63,9 @@ ARG PROTOBUF_GIT_COMMIT
 ARG PROTOBUF_SOURCE
 ADD --keep-git-dir=true ${PROTOBUF_SOURCE}#${PROTOBUF_GIT_COMMIT} ./protobuf-src
 
-ARG PROTOBUFC_SHA256
+ARG PROTOBUFC_GIT_COMMIT
 ARG PROTOBUFC_SOURCE
-ARG PROTOBUFC_VERSION
-ARG PROTOBUFC_SOURCE_FILE=protobuf-c-${PROTOBUFC_VERSION}.tar.gz
-ARG PROTOBUFC_DOWNLOAD_URL=${PROTOBUFC_SOURCE}/v${PROTOBUFC_VERSION}/${PROTOBUFC_SOURCE_FILE}
-ADD --checksum=sha256:${PROTOBUFC_SHA256} ${PROTOBUFC_DOWNLOAD_URL} protobuf-c.tar.gz
+ADD --keep-git-dir=true ${PROTOBUFC_SOURCE}#${PROTOBUFC_GIT_COMMIT} ./protobuf-c-src
 
 
 
@@ -126,20 +123,14 @@ SHELL ["/bin/ash", "-cexo", "pipefail"]
 ARG TARGET_BUILD_DEPS
 ARG PROTOBUFC_BUILD_DEPS_BUILD
 
-COPY --from=sources /tmp/src/protobuf-c.tar.gz /tmp/src/protobuf-c.tar.gz
+COPY --from=sources /tmp/src/protobuf-c-src /tmp/src/protobuf-c-src
 
 RUN <<EOF
-    mkdir ./protobuf-c-src
     apk add --no-cache --virtual build-deps ${TARGET_BUILD_DEPS} ${PROTOBUFC_BUILD_DEPS_BUILD}
-    tar -xzf protobuf-c.tar.gz --strip-components=1 -C ./protobuf-c-src
     cd protobuf-c-src || exit
 
     ./configure --prefix=/opt/protobuf-c-host
     make -j install
-    mkdir /opt/protobuf-c-host/bin/lib
-
-    # Package needed libs vs depending on apk to ensure version compatability
-    cp --parents -RL $(ldd /opt/protobuf-c-host/bin/protoc-gen-c | awk '{ print $3 }') /opt/protobuf-c-host/bin/lib
 
     rm -rf /tmp/*
     apk del build-deps ${CORE_BUILD_DEPS}
