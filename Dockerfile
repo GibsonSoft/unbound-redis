@@ -17,7 +17,9 @@ ENV CORE_BUILD_DEPS=${CORE_BUILD_DEPS}
 
 ENV CC="xx-clang"
 ENV CXX="xx-clang++"
-ENV LDFLAGS="-fuse-ld=lld -rtlib=compiler-rt -unwindlib=libunwind"
+ENV CFLAGS="-fPIE -fPIC"
+ENV CXXFLAGS="-fPIE -fPIC"
+ENV LDFLAGS="-fuse-ld=lld -rtlib=compiler-rt -unwindlib=libunwind -static-pie -fpic"
 ENV XX_CC_PREFER_LINKER=lld
 ENV XX_CC_PREFER_STATIC_LINKER=lld
 
@@ -89,13 +91,6 @@ RUN <<EOF
     export TARGET_SYSROOT && echo "export TARGET_SYSROOT=${TARGET_SYSROOT}" >> /etc/env
     PKG_CONFIG=${TARGET_TRIPLE}-pkg-config
     export PKG_CONFIG && echo "export PKG_CONFIG=${PKG_CONFIG}" >> /etc/env
-
-    if [ ${TARGETARCH} = "ppc64le" ]; then
-        CC="xx-clang -maix64"
-        export CC && echo "export CC=${CC}" >> /etc/env
-        CXX="xx-clang++ -maix64"
-        export CXX && echo "export CXX=${CXX}" >> /etc/env
-    fi
 EOF
 
 
@@ -113,17 +108,19 @@ RUN <<EOF
     apk add --no-cache --virtual build-deps ${TARGET_BUILD_DEPS} ${PROTOBUF_BUILD_DEPS_BUILD}
 
     git submodule update --init --recursive
+
     cmake \
         -S. \
         -Bcmake-out \
-        -DCMAKE_INSTALL_PREFIX=/opt/protobuf-build
+        -DCMAKE_PREFIX=/opt/protobuf-build \
+        -DZLIB_LIBRARY_RELEASE:FILEPATH=/lib/libz.a
     cd cmake-out || exit
-    make -j libprotobuf protoc
+    make -j protoc
 EOF
 
 
 
-FROM core-base AS protobuf-c-host
+FROM core-base AS protobuf-c-build
 WORKDIR /tmp/src
 SHELL ["/bin/ash", "-cexo", "pipefail"]
 ARG TARGET_BUILD_DEPS
@@ -150,7 +147,33 @@ EOF
 
 
 
-FROM target-base AS protobuf-c-target
+FROM target-base AS protobuf-host
+WORKDIR /tmp/src
+SHELL ["/bin/ash", "-cexo", "pipefail"]
+ARG TARGET_BUILD_DEPS
+ARG PROTOBUF_BUILD_DEPS_BUILD
+
+COPY --from=sources /tmp/src/protobuf-src /tmp/src/protobuf-src
+
+RUN <<EOF
+    cd ./protobuf-src || exit
+    apk add --no-cache --virtual build-deps ${TARGET_BUILD_DEPS} ${PROTOBUF_BUILD_DEPS_BUILD}
+
+    git submodule update --init --recursive
+
+    cmake \
+        -S. \
+        -Bcmake-out \
+        -DCMAKE_RUNTIME_OUTPUT_DIRECTORY=/opt/protobuf-build/bin \
+        -DCMAKE_ARCHIVE_OUTPUT_DIRECTORY=/opt/protobuf-build/lib \
+        -DZLIB_LIBRARY_RELEASE:FILEPATH=/lib/libz.a
+    cd cmake-out || exit
+    make -j libprotobuf libprotoc
+EOF
+
+
+
+FROM target-base AS protobuf-c-host
 WORKDIR /tmp/src
 SHELL ["/bin/ash", "-cexo", "pipefail"]
 ARG PROTOBUFC_BUILD_DEPS_BUILD
