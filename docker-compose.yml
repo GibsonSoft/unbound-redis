@@ -39,6 +39,9 @@ services:
           flex
           bison
           pkgconf
+          automake
+          autoconf
+          libtool
 
         TARGET_BUILD_DEPS: >
           g++

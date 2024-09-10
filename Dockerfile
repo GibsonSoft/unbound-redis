@@ -109,10 +109,13 @@ RUN <<EOF
     cmake \
         -S. \
         -Bcmake-out \
-        -DCMAKE_PREFIX=/opt/protobuf-build \
+        -DCMAKE_INSTALL_PREFIX=/opt/protobuf-build \
         -DZLIB_LIBRARY_RELEASE:FILEPATH=/lib/libz.a
     cd cmake-out || exit
-    make -j protoc
+    make -j install
+
+    rm -rf /tmp/*
+    apk del build-deps ${CORE_BUILD_DEPS}
 EOF
 
 
@@ -123,14 +126,18 @@ SHELL ["/bin/ash", "-cexo", "pipefail"]
 ARG TARGET_BUILD_DEPS
 ARG PROTOBUFC_BUILD_DEPS_BUILD
 
+COPY --from=protobuf-build /opt/protobuf-build/bin /usr/bin
+COPY --from=protobuf-build /opt/protobuf-build/lib /usr/lib
+COPY --from=protobuf-build /opt/protobuf-build/include /usr/include
 COPY --from=sources /tmp/src/protobuf-c-src /tmp/src/protobuf-c-src
 
 RUN <<EOF
-    apk add --no-cache --virtual build-deps ${TARGET_BUILD_DEPS} ${PROTOBUFC_BUILD_DEPS_BUILD}
     cd protobuf-c-src || exit
+    apk add --no-cache --virtual build-deps ${TARGET_BUILD_DEPS} ${PROTOBUFC_BUILD_DEPS_BUILD}
 
-    ./configure --prefix=/opt/protobuf-c-host
-    make -j install
+    ./autogen.sh && ./configure --prefix=/opt/protobuf-c-build
+    make -j install-binPROGRAMS
+    ln -s protoc-gen-c /opt/protobuf-c-build/bin/protoc
 
     rm -rf /tmp/*
     apk del build-deps ${CORE_BUILD_DEPS}
