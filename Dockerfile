@@ -38,13 +38,11 @@ EOF
 
 FROM scratch AS sources
 WORKDIR /tmp/src
-ARG OPENSSL_SHA256
+
+ARG OPENSSL_GIT_COMMIT
 ARG OPENSSL_SOURCE
 ARG OPENSSL_VERSION
-ARG OPENSSL_SOURCE_FILE=openssl-${OPENSSL_VERSION}.tar.gz
-ARG OPENSSL_DOWNLOAD_URL=${OPENSSL_SOURCE}/${OPENSSL_SOURCE_FILE}
-ADD --checksum=sha256:${OPENSSL_SHA256} ${OPENSSL_DOWNLOAD_URL} openssl.tar.gz
-ADD ${OPENSSL_DOWNLOAD_URL}.asc openssl.tar.gz.asc
+ADD --keep-git-dir=true ${OPENSSL_SOURCE}#${OPENSSL_GIT_COMMIT} ./openssl-src
 
 ARG UNBOUND_SHA256
 ARG UNBOUND_SOURCE
@@ -62,10 +60,12 @@ ADD --checksum=sha256:${LDNS_SHA256} ${LDNS_DOWNLOAD_URL} ldns.tar.gz
 
 ARG PROTOBUF_GIT_COMMIT
 ARG PROTOBUF_SOURCE
+ARG PROTOBUF_VERSION
 ADD --keep-git-dir=true ${PROTOBUF_SOURCE}#${PROTOBUF_GIT_COMMIT} ./protobuf-src
 
 ARG PROTOBUFC_GIT_COMMIT
 ARG PROTOBUFC_SOURCE
+ARG PROTOBUFC_VERSION
 ADD --keep-git-dir=true ${PROTOBUFC_SOURCE}#${PROTOBUFC_GIT_COMMIT} ./protobuf-c-src
 
 
@@ -222,22 +222,15 @@ EOF
 FROM target-base AS openssl
 WORKDIR /tmp/src
 SHELL ["/bin/ash", "-cexo", "pipefail"]
-
+ARG CORE_BUILD_DEPS
+ARG TARGET_BUILD_DEPS
 ARG OPENSSL_BUILD_DEPS
-ARG OPENSSL_OPGP_KEYS
 
-COPY --from=sources /tmp/src/openssl.tar.gz /tmp/src/openssl.tar.gz.asc /tmp/src/
+COPY --from=sources /tmp/src/openssl-src /tmp/src/openssl-src
 
 RUN <<EOF
-    GNUPGHOME="$(mktemp -d)"
-    export GNUPGHOME
-    xx-apk add --no-cache --virtual build-deps ${OPENSSL_BUILD_DEPS}
-    gpg --no-tty --keyserver keyserver.ubuntu.com --recv-keys ${OPENSSL_OPGP_KEYS}
-    gpg --batch --verify openssl.tar.gz.asc openssl.tar.gz
-    mkdir ./openssl-src
-    tar -xzf openssl.tar.gz --strip-components=1 -C ./openssl-src
-    rm -f openssl.tar.gz openssl.tar.gz.asc
     cd ./openssl-src || exit
+    xx-apk add --no-cache --virtual build-deps ${OPENSSL_BUILD_DEPS}
 
     ./Configure $(xx-info os)-$(xx-info march) \
         --prefix=/opt/openssl \
@@ -251,8 +244,8 @@ RUN <<EOF
         no-pinshared \
         enable-ec_nistp_64_gcc_128 \
         -static
-    make -j
-    make -j install_sw
+    make -j ${BUILD_THREADS}
+    make -j ${BUILD_THREADS} install_sw
     xx-apk del build-deps ${TARGET_BUILD_DEPS}
     apk del ${CORE_BUILD_DEPS}
     rm -rf /tmp/*

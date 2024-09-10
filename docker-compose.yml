@@ -82,22 +82,9 @@ services:
           nghttp2-static
           hiredis-dev
 
-        # In order of appearance:
-        # OpenSSL OMC
-        # Richard Levitte
-        # Matt Caswell
-        # Paul Dale
-        # Tomas Mraz
-        OPENSSL_OPGP_KEYS: >
-          EFC0A467D613CB83C7ED6D30D894E2CE8B3D79F5
-          7953AC1FBC3DC8B3B292393ED5E9E43F7DF9EE8C
-          8657ABB260F056B1E5190839D9C4D26D0E604491
-          B7C1C14360F353A36862E4D5231C84CDDCC69C45
-          A21FAB74B0088AA361152586B8EF1A6BA9DA2D5C
-
-        OPENSSL_SHA256: 777cd596284c883375a2a7a11bf5d2786fc5413255efab20c50d6ffe6d020b7e
-        OPENSSL_SOURCE: https://www.openssl.org/source/
-        OPENSSL_VERSION: 3.3.1
+        OPENSSL_GIT_COMMIT: fb7fab9fa6f4869eaa8fbb97e0d593159f03ffe4
+        OPENSSL_SOURCE: https://github.com/openssl/openssl.git
+        OPENSSL_VERSION: 3.3.2
 
         PROTOBUF_GIT_COMMIT: 439c42c735ae1efed57ab7771986f2a3c0b99319
         PROTOBUF_SOURCE: https://github.com/protocolbuffers/protobuf.git
