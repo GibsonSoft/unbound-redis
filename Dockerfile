@@ -95,6 +95,7 @@ EOF
 FROM core-base AS protobuf-build
 WORKDIR /tmp/src
 SHELL ["/bin/ash", "-cexo", "pipefail"]
+ARG CORE_BUILD_DEPS
 ARG TARGET_BUILD_DEPS
 ARG PROTOBUF_BUILD_DEPS_BUILD
 
@@ -104,12 +105,10 @@ RUN <<EOF
     cd ./protobuf-src || exit
     apk add --no-cache --virtual build-deps ${TARGET_BUILD_DEPS} ${PROTOBUF_BUILD_DEPS_BUILD}
 
-    git submodule update --init --recursive
-
     cmake \
         -S. \
         -Bcmake-out \
-        -DCMAKE_INSTALL_PREFIX=/opt/protobuf-build \
+        -DCMAKE_INSTALL_PREFIX=/opt/protobuf \
         -DZLIB_LIBRARY_RELEASE:FILEPATH=/lib/libz.a
     cd cmake-out || exit
     make -j install
@@ -123,21 +122,21 @@ EOF
 FROM core-base AS protobuf-c-build
 WORKDIR /tmp/src
 SHELL ["/bin/ash", "-cexo", "pipefail"]
+ARG CORE_BUILD_DEPS
 ARG TARGET_BUILD_DEPS
-ARG PROTOBUFC_BUILD_DEPS_BUILD
 
-COPY --from=protobuf-build /opt/protobuf-build/bin /usr/bin
-COPY --from=protobuf-build /opt/protobuf-build/lib /usr/lib
-COPY --from=protobuf-build /opt/protobuf-build/include /usr/include
+COPY --from=protobuf-build /opt/protobuf/bin /usr/bin
+COPY --from=protobuf-build /opt/protobuf/lib /usr/lib
+COPY --from=protobuf-build /opt/protobuf/include /usr/include
 COPY --from=sources /tmp/src/protobuf-c-src /tmp/src/protobuf-c-src
 
 RUN <<EOF
     cd protobuf-c-src || exit
-    apk add --no-cache --virtual build-deps ${TARGET_BUILD_DEPS} ${PROTOBUFC_BUILD_DEPS_BUILD}
+    apk add --no-cache --virtual build-deps ${TARGET_BUILD_DEPS}
 
-    ./autogen.sh && ./configure --prefix=/opt/protobuf-c-build
+    ./autogen.sh && ./configure --prefix=/opt/protobuf-c
     make -j install-binPROGRAMS
-    ln -s protoc-gen-c /opt/protobuf-c-build/bin/protoc
+    ln -s protoc-gen-c /opt/protobuf-c/bin/protoc
 
     rm -rf /tmp/*
     apk del build-deps ${CORE_BUILD_DEPS}
@@ -148,25 +147,29 @@ EOF
 FROM target-base AS protobuf-host
 WORKDIR /tmp/src
 SHELL ["/bin/ash", "-cexo", "pipefail"]
+ARG CORE_BUILD_DEPS
 ARG TARGET_BUILD_DEPS
 ARG PROTOBUF_BUILD_DEPS_BUILD
 
 COPY --from=sources /tmp/src/protobuf-src /tmp/src/protobuf-src
 
 RUN <<EOF
+    . /etc/env
     cd ./protobuf-src || exit
-    apk add --no-cache --virtual build-deps ${TARGET_BUILD_DEPS} ${PROTOBUF_BUILD_DEPS_BUILD}
-
-    git submodule update --init --recursive
+    xx-apk add --no-cache --virtual build-deps ${PROTOBUF_BUILD_DEPS_HOST}
 
     cmake \
         -S. \
         -Bcmake-out \
-        -DCMAKE_RUNTIME_OUTPUT_DIRECTORY=/opt/protobuf-build/bin \
-        -DCMAKE_ARCHIVE_OUTPUT_DIRECTORY=/opt/protobuf-build/lib \
-        -DZLIB_LIBRARY_RELEASE:FILEPATH=/lib/libz.a
+        -DCMAKE_INSTALL_PREFIX=/opt/protobuf \
+        -DZLIB_LIBRARY_RELEASE:FILEPATH=/lib/libz.a \
+        $(xx-clang --print-cmake-defines)
     cd cmake-out || exit
-    make -j libprotobuf libprotoc
+    make -j install
+
+    rm -rf /tmp/*
+    xx-apk del build-deps ${TARGET_BUILD_DEPS}
+    apk del ${CORE_BUILD_DEPS}
 EOF
 
 
@@ -174,31 +177,30 @@ EOF
 FROM target-base AS protobuf-c-host
 WORKDIR /tmp/src
 SHELL ["/bin/ash", "-cexo", "pipefail"]
-ARG PROTOBUFC_BUILD_DEPS_BUILD
-ARG PROTOBUFC_BUILD_DEPS_HOST
+ARG CORE_BUILD_DEPS
+ARG TARGET_BUILD_DEPS
 
-COPY --from=sources /tmp/src/protobuf-c.tar.gz /tmp/src/protobuf-c.tar.gz
+COPY --from=protobuf-build /opt/protobuf/bin /usr/bin
+COPY --from=protobuf-host /opt/protobuf/lib /usr/lib
+COPY --from=protobuf-host /opt/protobuf/include /usr/include
+COPY --from=sources /tmp/src/protobuf-c-src /tmp/src/protobuf-c-src
 
 RUN <<EOF
     . /etc/env
 
-    mkdir ./protobuf-c-src
-    apk add --no-cache --virtual build-deps-build ${PROTOBUFC_BUILD_DEPS_BUILD}
-    xx-apk add --no-cache --virtual build-deps-host ${PROTOBUFC_BUILD_DEPS_HOST}
-    tar -xzf protobuf-c.tar.gz --strip-components=1 -C ./protobuf-c-src
     cd protobuf-c-src || exit
 
-    ./configure \
+    ./autogen.sh && ./configure \
         PROTOC=/usr/bin/protoc \
         --with-sysroot=${TARGET_SYSROOT} \
-        --prefix=/opt/protobuf-c-target \
+        --prefix=/opt/protobuf-c \
         --host=${TARGET_TRIPLE} \
         --disable-protoc
     make -j install
 
     rm -rf /tmp/*
-    xx-apk del build-deps-host ${TARGET_BUILD_DEPS}
-    apk del build-deps-build ${CORE_BUILD_DEPS}
+    xx-apk del ${TARGET_BUILD_DEPS}
+    apk del ${CORE_BUILD_DEPS}
 EOF
 
 
