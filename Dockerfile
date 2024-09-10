@@ -12,8 +12,10 @@ ARG XX_VERSION=latest
 
 FROM --platform=${BUILDPLATFORM} tonistiigi/xx:${XX_VERSION} AS xx
 FROM --platform=${BUILDPLATFORM} alpine:${ALPINE_VERSION} AS core-base
+WORKDIR /tmp/src
+SHELL ["/bin/ash", "-cexo", "pipefail"]
 ARG CORE_BUILD_DEPS
-ENV CORE_BUILD_DEPS=${CORE_BUILD_DEPS}
+ARG BUILD_THREADS
 
 ENV CC="xx-clang"
 ENV CXX="xx-clang++"
@@ -22,9 +24,8 @@ ENV CXXFLAGS="-fPIE -fPIC"
 ENV LDFLAGS="-fuse-ld=lld -rtlib=compiler-rt -unwindlib=libunwind -static-pie -fpic"
 ENV XX_CC_PREFER_LINKER=lld
 ENV XX_CC_PREFER_STATIC_LINKER=lld
-
-WORKDIR /tmp/src
-SHELL ["/bin/ash", "-cexo", "pipefail"]
+ENV BUILD_THREADS=${BUILD_THREADS:-1}
+ENV CORE_BUILD_DEPS=${CORE_BUILD_DEPS}
 
 COPY --from=xx / /
 
@@ -109,9 +110,12 @@ RUN <<EOF
         -S. \
         -Bcmake-out \
         -DCMAKE_INSTALL_PREFIX=/opt/protobuf \
-        -DZLIB_LIBRARY_RELEASE:FILEPATH=/lib/libz.a
+        -DZLIB_LIBRARY_RELEASE:FILEPATH=/lib/libz.a \
+        -DABSL_BUILD_TESTING=OFF \
+        -Dprotobuf_BUILD_TESTS=OFF \
+        -DCMAKE_BUILD_TYPE=Release
     cd cmake-out || exit
-    make -j install
+    make -j ${BUILD_THREADS} install
 
     rm -rf /tmp/*
     apk del build-deps ${CORE_BUILD_DEPS}
@@ -135,7 +139,7 @@ RUN <<EOF
     apk add --no-cache --virtual build-deps ${TARGET_BUILD_DEPS}
 
     ./autogen.sh && ./configure --prefix=/opt/protobuf-c
-    make -j install-binPROGRAMS
+    make -j ${BUILD_THREADS} install-binPROGRAMS
     ln -s protoc-gen-c /opt/protobuf-c/bin/protoc
 
     rm -rf /tmp/*
@@ -149,7 +153,8 @@ WORKDIR /tmp/src
 SHELL ["/bin/ash", "-cexo", "pipefail"]
 ARG CORE_BUILD_DEPS
 ARG TARGET_BUILD_DEPS
-ARG PROTOBUF_BUILD_DEPS_BUILD
+ARG PROTOBUF_BUILD_DEPS_HOST
+ARG TARGETARCH
 
 COPY --from=sources /tmp/src/protobuf-src /tmp/src/protobuf-src
 
@@ -158,14 +163,23 @@ RUN <<EOF
     cd ./protobuf-src || exit
     xx-apk add --no-cache --virtual build-deps ${PROTOBUF_BUILD_DEPS_HOST}
 
+    if [ ${TARGETARCH} = 'ppc64le' ]; then
+        export CFLAGS="${CFLAGS} -DABSL_USE_UNSCALED_CYCLECLOCK=0"
+        export CXXFLAGS="${CXXFLAGS} -DABSL_USE_UNSCALED_CYCLECLOCK=0"
+    fi
+
     cmake \
         -S. \
         -Bcmake-out \
         -DCMAKE_INSTALL_PREFIX=/opt/protobuf \
-        -DZLIB_LIBRARY_RELEASE:FILEPATH=/lib/libz.a \
+        -DZLIB_LIBRARY_RELEASE:FILEPATH=${TARGET_SYSROOT}lib/libz.a \
+        -DZLIB_INCLUDE_DIR=${TARGET_SYSROOT}usr/include \
+        -DABSL_BUILD_TESTING=OFF \
+        -Dprotobuf_BUILD_TESTS=OFF \
+        -DCMAKE_BUILD_TYPE=Release \
         $(xx-clang --print-cmake-defines)
     cd cmake-out || exit
-    make -j install
+    make -j ${BUILD_THREADS} install
 
     rm -rf /tmp/*
     xx-apk del build-deps ${TARGET_BUILD_DEPS}
@@ -196,7 +210,7 @@ RUN <<EOF
         --prefix=/opt/protobuf-c \
         --host=${TARGET_TRIPLE} \
         --disable-protoc
-    make -j install
+    make -j ${BUILD_THREADS} install
 
     rm -rf /tmp/*
     xx-apk del ${TARGET_BUILD_DEPS}
