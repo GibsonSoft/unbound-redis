@@ -263,13 +263,22 @@ ARG CORE_BUILD_DEPS
 ARG TARGET_BUILD_DEPS
 
 COPY --from=sources /tmp/src/hiredis-src /tmp/src/hiredis-src
-COPY --from=openssl /opt/openssl/lib /usr/lib
-COPY --from=openssl /opt/openssl/include /usr/include
+COPY --from=openssl /opt/openssl /opt/openssl
 
 RUN <<EOF
     cd ./hiredis-src || exit
+
+    export CFLAGS="${CFLAGS} -I/opt/openssl/include"
+    export LDFLAGS="${LDFLAGS} -L/opt/openssl/lib"
     make -j ${BUILD_THREADS} USE_SSL=1 static
-    mkdir -p /opt/hiredis
+    mkdir -p /opt/hiredis/lib /opt/hiredis/include/adapters
+    cp *.h /opt/hiredis/include
+    cp adapters/*.h /opt/hiredis/include/adapters
+    cp *.a /opt/hiredis/lib
+
+    rm -rf /tmp/*
+    xx-apk del ${TARGET_BUILD_DEPS}
+    apk del ${CORE_BUILD_DEPS}
 EOF
 
 
