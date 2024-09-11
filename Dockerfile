@@ -49,12 +49,10 @@ ARG UNBOUND_VERSION
 ARG UNBOUND_SOURCE
 ADD --keep-git-dir=true ${UNBOUND_SOURCE}#${UNBOUND_GIT_COMMIT} ./unbound-src
 
-ARG LDNS_SHA256
+ARG LDNS_GIT_COMMIT
 ARG LDNS_SOURCE
 ARG LDNS_VERSION
-ARG LDNS_SOURCE_FILE=ldns-${LDNS_VERSION}.tar.gz
-ARG LDNS_DOWNLOAD_URL=${LDNS_SOURCE}/${LDNS_SOURCE_FILE}
-ADD --checksum=sha256:${LDNS_SHA256} ${LDNS_DOWNLOAD_URL} ldns.tar.gz
+ADD --keep-git-dir=true ${LDNS_SOURCE}#${LDNS_GIT_COMMIT} ./ldns-src
 
 ARG PROTOBUF_GIT_COMMIT
 ARG PROTOBUF_SOURCE
@@ -343,35 +341,23 @@ EOF
 FROM target-base AS ldns
 WORKDIR /tmp/src
 SHELL ["/bin/ash", "-cexo", "pipefail"]
-ARG TARGETPLATFORM
 
-ARG LDNS_BUILD_DEPS
-
-COPY --from=sources /tmp/src/ldns.tar.gz /tmp/src/ldns.tar.gz
+COPY --from=sources /tmp/src/ldns-src /tmp/src/ldns-src
 COPY --from=openssl /opt/openssl /opt/openssl
 
-# Ignore SC2034, Needed to static-compile unbound/ldns, per https://github.com/NLnetLabs/unbound/issues/91#issuecomment-1707544943
-# hadolint ignore=SC2034
 RUN <<EOF
-    mkdir ./ldns-src
-    xx-apk add --no-cache --virtual build-deps ${LDNS_BUILD_DEPS}
-    tar -xzf ldns.tar.gz --strip-components=1 -C ./ldns-src
-    rm -f ldns.tar.gz
     cd ./ldns-src || exit
     
-    sed -e 's/@LDFLAGS@/@LDFLAGS@ -all-static/' -i Makefile.in
-    LIBS="-lpthread -lm"
-    LDFLAGS="-Wl,-static -static -static-libgcc"
     ./configure \
         --host=$(xx-clang --print-target-triple) \
         --prefix=/opt/ldns \
         --with-ssl=/opt/openssl \
         --with-drill \
         --disable-shared \
-        --enable-static
-    make -j
-    make -j install
-    xx-apk del build-deps ${TARGET_BUILD_DEPS}
+        --disable-static
+    make -j ${BUILD_THREADS}
+    make -j ${BUILD_THREADS} install-drill
+    xx-apk del ${TARGET_BUILD_DEPS}
     apk del ${CORE_BUILD_DEPS}
     rm -rf /tmp/*
 EOF

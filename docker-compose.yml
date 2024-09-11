@@ -53,9 +53,6 @@ services:
           llvm-libunwind-static
           musl-dev
           linux-headers
-        
-        LDNS_BUILD_DEPS: >
-          libtool
 
         PROTOBUF_BUILD_DEPS_BUILD: >
           zlib-dev
@@ -87,9 +84,9 @@ services:
         PROTOBUFC_SOURCE: https://github.com/protobuf-c/protobuf-c.git
         PROTOBUFC_VERSION: 1.5.0
 
-        LDNS_SHA256: c3f72dd1036b2907e3a56e6acf9dfb2e551256b3c1bbd9787942deeeb70e7860
-        LDNS_SOURCE: https://nlnetlabs.nl/downloads/ldns/
-        LDNS_VERSION: 1.8.3
+        LDNS_GIT_COMMIT: 46f2f0035330414b1c6f19c3b8c43994a1fb766c
+        LDNS_SOURCE: https://github.com/NLnetLabs/ldns.git
+        LDNS_VERSION: 1.8.4
 
         UNBOUND_GIT_COMMIT: 79e4c578518886a32475cfbb0de383ff3a905033
         UNBOUND_SOURCE: https://github.com/NLnetLabs/unbound.git
