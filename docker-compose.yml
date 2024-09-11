@@ -57,8 +57,6 @@ services:
         LDNS_BUILD_DEPS: >
           libtool
 
-        # OPENSSL_BUILD_DEPS: >
-
         PROTOBUF_BUILD_DEPS_BUILD: >
           zlib-dev
           zlib-static
@@ -66,10 +64,6 @@ services:
         PROTOBUF_BUILD_DEPS_HOST: >
           zlib-dev
           zlib-static
-
-        # PROTOBUFC_BUILD_DEPS_BUILD: >
-
-        # PROTOBUFC_BUILD_DEPS_HOST: >
         
         UNBOUND_BUILD_DEPS: >
           expat-dev
@@ -98,8 +92,8 @@ services:
         LDNS_SOURCE: https://nlnetlabs.nl/downloads/ldns/
         LDNS_VERSION: 1.8.3
 
-        UNBOUND_SHA256: e7dca7d6b0f81bdfa6fa64ebf1053b5a999a5ae9278a87ef182425067ea14521
-        UNBOUND_SOURCE: https://nlnetlabs.nl/downloads/unbound/
+        UNBOUND_GIT_COMMIT: 79e4c578518886a32475cfbb0de383ff3a905033
+        UNBOUND_SOURCE: https://github.com/NLnetLabs/unbound.git
         UNBOUND_VERSION: 1.21.0
 
         ROOT_HINTS: https://www.internic.net/domain/named.root

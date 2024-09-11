@@ -44,12 +44,10 @@ ARG OPENSSL_SOURCE
 ARG OPENSSL_VERSION
 ADD --keep-git-dir=true ${OPENSSL_SOURCE}#${OPENSSL_GIT_COMMIT} ./openssl-src
 
-ARG UNBOUND_SHA256
-ARG UNBOUND_SOURCE
+ARG UNBOUND_GIT_COMMIT
 ARG UNBOUND_VERSION
-ARG UNBOUND_SOURCE_FILE=unbound-${UNBOUND_VERSION}.tar.gz
-ARG UNBOUND_DOWNLOAD_URL=${UNBOUND_SOURCE}/${UNBOUND_SOURCE_FILE}
-ADD --checksum=sha256:${UNBOUND_SHA256} ${UNBOUND_DOWNLOAD_URL} unbound.tar.gz
+ARG UNBOUND_SOURCE
+ADD --keep-git-dir=true ${UNBOUND_SOURCE}#${UNBOUND_GIT_COMMIT} ./unbound-src
 
 ARG LDNS_SHA256
 ARG LDNS_SOURCE
@@ -259,29 +257,19 @@ SHELL ["/bin/ash", "-cexo", "pipefail"]
 
 ARG UNBOUND_BUILD_DEPS
 
-COPY --from=sources /tmp/src/unbound.tar.gz /tmp/src/unbound.tar.gz
+COPY --from=sources /tmp/src/unbound-src /tmp/src/unbound-src
 COPY --from=openssl /opt/openssl /opt/openssl
-COPY --from=protobuf-c-host /opt/protobuf-c-host/bin /opt/protobuf-c-host/bin
-COPY --from=protobuf-c-target /opt/protobuf-c-target /opt/protobuf-c-target
+COPY --from=protobuf-c-build /opt/protobuf-c/bin /opt/protobuf-c/bin
+COPY --from=protobuf-c-host /opt/protobuf-c /opt/protobuf-c
 
-# Ignore SC2034, Needed to static-compile unbound/ldns, per https://github.com/NLnetLabs/unbound/issues/91#issuecomment-1707544943
-# hadolint ignore=SC2034
 RUN <<EOF
     . /etc/env
 
-    mkdir ./unbound-src
-    xx-apk add --no-cache --virtual build-deps ${UNBOUND_BUILD_DEPS}
-    tar -xzf unbound.tar.gz --strip-components=1 -C ./unbound-src
-    rm -f unbound.tar.gz
     cd ./unbound-src || exit
+    xx-apk add --no-cache --virtual build-deps ${UNBOUND_BUILD_DEPS}
+
     addgroup -S _unbound
     adduser -S -s /dev/null -h /etc/unbound -G _unbound _unbound
-
-    for file in $(find /opt/protobuf-c-host/bin/lib/* -type f); do
-        symlinkpath=$(dirname $file | sed -e "s/\/opt\/protobuf-c-host\/bin\/lib\//\//")
-        mkdir -p $symlinkpath
-        cp -ns $file $symlinkpath/$(basename $file)
-    done
     
     sed -e 's/@LDFLAGS@/@LDFLAGS@ -all-static/' -i Makefile.in
     ./configure \
