@@ -348,6 +348,8 @@ COPY --from=openssl /opt/openssl /opt/openssl
 RUN <<EOF
     cd ./ldns-src || exit
     
+    libtoolize -ci
+    autoreconf -fi
     ./configure \
         --host=$(xx-clang --print-target-triple) \
         --prefix=/opt/ldns \
