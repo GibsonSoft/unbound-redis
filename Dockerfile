@@ -293,6 +293,7 @@ COPY --from=sources /tmp/src/unbound-src /tmp/src/unbound-src
 COPY --from=openssl /opt/openssl /opt/openssl
 COPY --from=protobuf-c-build /opt/protobuf-c/bin /opt/protobuf-c/bin
 COPY --from=protobuf-c-host /opt/protobuf-c /opt/protobuf-c
+COPY --from=hiredis /opt/hiredis /opt/hiredis
 
 RUN <<EOF
     . /etc/env
@@ -319,7 +320,7 @@ RUN <<EOF
         --with-libevent=${TARGET_SYSROOT}usr \
         --with-libexpat=${TARGET_SYSROOT}usr \
         --with-libnghttp2=${TARGET_SYSROOT}usr \
-        --with-libhiredis=${TARGET_SYSROOT}usr \
+        --with-libhiredis=/opt/hiredis \
         --with-libsodium=${TARGET_SYSROOT}usr \
         --with-protobuf-c=/opt/protobuf-c \
         --enable-dnstap \
