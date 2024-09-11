@@ -80,9 +80,9 @@ services:
         OPENSSL_SOURCE: https://github.com/openssl/openssl.git
         OPENSSL_VERSION: 3.3.2
 
-        PROTOBUF_GIT_COMMIT: 439c42c735ae1efed57ab7771986f2a3c0b99319
+        PROTOBUF_GIT_COMMIT: e915ce24b3d43c0fffcbf847354288c07dda1de0
         PROTOBUF_SOURCE: https://github.com/protocolbuffers/protobuf.git
-        PROTOBUF_VERSION: 28.0
+        PROTOBUF_VERSION: 25.4
 
         PROTOBUFC_GIT_COMMIT: 86a89d1e758557e5df60cf47ed98df837ed93428
         PROTOBUFC_SOURCE: https://github.com/protobuf-c/protobuf-c.git
