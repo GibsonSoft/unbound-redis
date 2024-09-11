@@ -96,5 +96,9 @@ services:
         UNBOUND_SOURCE: https://github.com/NLnetLabs/unbound.git
         UNBOUND_VERSION: 1.21.0
 
+        HIREDIS_GIT_COMMIT: 60e5075d4ac77424809f855ba3e398df7aacefe8
+        HIREDIS_SOURCE: https://github.com/redis/hiredis.git
+        HIREDIS_VERSION: 1.2.0
+
         ROOT_HINTS: https://www.internic.net/domain/named.root
         ICANN_CERT: https://data.iana.org/root-anchors/icannbundle.pem

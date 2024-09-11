@@ -66,6 +66,11 @@ ARG PROTOBUFC_SOURCE
 ARG PROTOBUFC_VERSION
 ADD --keep-git-dir=true ${PROTOBUFC_SOURCE}#${PROTOBUFC_GIT_COMMIT} ./protobuf-c-src
 
+ARG HIREDIS_GIT_COMMIT
+ARG HIREDIS_SOURCE
+ARG HIREDIS_VERSION
+ADD --keep-git-dir=true ${HIREDIS_SOURCE}#${HIREDIS_GIT_COMMIT} ./hiredis-src
+
 
 
 FROM core-base AS target-base
@@ -247,6 +252,24 @@ RUN <<EOF
     xx-apk del build-deps ${TARGET_BUILD_DEPS}
     apk del ${CORE_BUILD_DEPS}
     rm -rf /tmp/*
+EOF
+
+
+
+FROM target-base AS hiredis
+WORKDIR /tmp/src
+SHELL ["/bin/ash", "-cexo", "pipefail"]
+ARG CORE_BUILD_DEPS
+ARG TARGET_BUILD_DEPS
+
+COPY --from=sources /tmp/src/hiredis-src /tmp/src/hiredis-src
+COPY --from=openssl /opt/openssl/lib /usr/lib
+COPY --from=openssl /opt/openssl/include /usr/include
+
+RUN <<EOF
+    cd ./hiredis-src || exit
+    make -j ${BUILD_THREADS} USE_SSL=1 static
+    mkdir -p /opt/hiredis
 EOF
 
 
