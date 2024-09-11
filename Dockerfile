@@ -271,9 +271,9 @@ RUN <<EOF
     export CFLAGS="${CFLAGS} -I/opt/openssl/include"
     export LDFLAGS="${LDFLAGS} -L/opt/openssl/lib"
     make -j ${BUILD_THREADS} USE_SSL=1 static
-    mkdir -p /opt/hiredis/lib /opt/hiredis/include/adapters
-    cp *.h /opt/hiredis/include
-    cp adapters/*.h /opt/hiredis/include/adapters
+    mkdir -p /opt/hiredis/lib /opt/hiredis/include/hiredis/adapters
+    cp *.h /opt/hiredis/include/hiredis
+    cp adapters/*.h /opt/hiredis/include/hiredis/adapters
     cp *.a /opt/hiredis/lib
 
     rm -rf /tmp/*
