@@ -138,7 +138,7 @@ RUN <<EOF
 
     ./autogen.sh && ./configure --prefix=/opt/protobuf-c
     make -j ${BUILD_THREADS} install-binPROGRAMS
-    ln -s protoc-gen-c /opt/protobuf-c/bin/protoc
+    ln -s protoc-gen-c /opt/protobuf-c/bin/protoc-c
 
     rm -rf /tmp/*
     apk del build-deps ${CORE_BUILD_DEPS}
@@ -289,7 +289,7 @@ RUN <<EOF
         --with-libnghttp2=${TARGET_SYSROOT}usr \
         --with-libhiredis=${TARGET_SYSROOT}usr \
         --with-libsodium=${TARGET_SYSROOT}usr \
-        --with-protobuf-c=/opt/protobuf-c-target \
+        --with-protobuf-c=/opt/protobuf-c \
         --enable-dnstap \
         --enable-tfo-server \
         --enable-tfo-client \
