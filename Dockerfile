@@ -273,7 +273,7 @@ RUN <<EOF
     
     sed -e 's/@LDFLAGS@/@LDFLAGS@ -all-static/' -i Makefile.in
     ./configure \
-        PROTOC_C=/opt/protobuf-c-host/bin/protoc-c \
+        PROTOC_C=/opt/protobuf-c/bin/protoc-c \
         --host=$(xx-clang --print-target-triple) \
         --prefix= \
         --with-chroot-dir=/var/chroot/unbound \
