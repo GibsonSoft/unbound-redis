@@ -271,9 +271,8 @@ RUN <<EOF
     export CFLAGS="${CFLAGS} -I/opt/openssl/include"
     export LDFLAGS="${LDFLAGS} -L/opt/openssl/lib"
     make -j ${BUILD_THREADS} USE_SSL=1 static
-    mkdir -p /opt/hiredis/lib /opt/hiredis/include/hiredis/adapters
-    cp *.h /opt/hiredis/include/hiredis
-    cp adapters/*.h /opt/hiredis/include/hiredis/adapters
+    mkdir -p /opt/hiredis/lib /opt/hiredis/include/hiredis
+    cp -r *.h adapters /opt/hiredis/include/hiredis
     cp *.a /opt/hiredis/lib
 
     rm -rf /tmp/*
@@ -304,7 +303,6 @@ RUN <<EOF
     addgroup -S _unbound
     adduser -S -s /dev/null -h /etc/unbound -G _unbound _unbound
     
-    sed -e 's/@LDFLAGS@/@LDFLAGS@ -all-static/' -i Makefile.in
     ./configure \
         PROTOC_C=/opt/protobuf-c/bin/protoc-c \
         --host=$(xx-clang --print-target-triple) \
@@ -330,7 +328,6 @@ RUN <<EOF
         --enable-subnet \
         --enable-cachedb \
         --enable-dnscrypt \
-        --disable-flto \
         --disable-shared \
         --disable-static \
         --enable-fully-static
