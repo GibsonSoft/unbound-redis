@@ -116,6 +116,10 @@ RUN <<EOF
     export TARGET_SYSROOT && echo "export TARGET_SYSROOT=${TARGET_SYSROOT}" >> /etc/env
     PKG_CONFIG=${TARGET_TRIPLE}-pkg-config
     export PKG_CONFIG && echo "export PKG_CONFIG=${PKG_CONFIG}" >> /etc/env
+
+    if [ $(xx-info march) = "s390x" ]; then
+       export LDFLAGS="-fuse-ld=lld -static-pie -fpic" && echo "export LDFLAGS='${LDFLAGS}'" >> /etc/env
+    fi
 EOF
 
 
