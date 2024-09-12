@@ -30,6 +30,8 @@ ENV CORE_BUILD_DEPS=${CORE_BUILD_DEPS}
 COPY --from=xx / /
 
 RUN <<EOF
+    echo "@edge https://dl-cdn.alpinelinux.org/alpine/edge/main" >> /etc/apk/repositories
+    echo "@edge https://dl-cdn.alpinelinux.org/alpine/edge/community" >> /etc/apk/repositories
     apk --no-cache upgrade 
     apk add --no-cache ${CORE_BUILD_DEPS}
 EOF
@@ -346,6 +348,7 @@ COPY --from=sources /tmp/src/ldns-src /tmp/src/ldns-src
 COPY --from=openssl /opt/openssl /opt/openssl
 
 RUN <<EOF
+    . /etc/env
     cd ./ldns-src || exit
     
     libtoolize -ci
