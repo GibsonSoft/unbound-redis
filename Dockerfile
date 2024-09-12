@@ -418,7 +418,7 @@ COPY ./data/etc/ /var/chroot/unbound/etc/
 COPY --chmod=744 ./data/unbound.bootstrap /unbound
 
 COPY --from=target-base /bin/busybox /lib/ld-musl*.so.1 /lib/
-COPY --from=target-base /etc/ssl/certs/ /etc/ssl/certs/
+COPY --from=target-base /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 
 COPY --from=openssl /opt/openssl/bin/openssl /bin/openssl
 
