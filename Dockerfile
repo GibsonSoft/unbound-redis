@@ -150,7 +150,6 @@ RUN <<EOF
     make -j ${BUILD_THREADS} install
 
     rm -rf /tmp/*
-    apk del build-deps ${CORE_BUILD_DEPS}
 EOF
 
 
@@ -175,7 +174,6 @@ RUN <<EOF
     ln -s protoc-gen-c /opt/protobuf-c/bin/protoc-c
 
     rm -rf /tmp/*
-    apk del build-deps ${CORE_BUILD_DEPS}
 EOF
 
 
@@ -214,8 +212,6 @@ RUN <<EOF
     make -j ${BUILD_THREADS} install
 
     rm -rf /tmp/*
-    xx-apk del build-deps ${TARGET_BUILD_DEPS}
-    apk del ${CORE_BUILD_DEPS}
 EOF
 
 
@@ -245,8 +241,6 @@ RUN <<EOF
     make -j ${BUILD_THREADS} install
 
     rm -rf /tmp/*
-    xx-apk del ${TARGET_BUILD_DEPS}
-    apk del ${CORE_BUILD_DEPS}
 EOF
 
 
@@ -278,8 +272,7 @@ RUN <<EOF
         -static
     make -j ${BUILD_THREADS}
     make -j ${BUILD_THREADS} install_sw
-    xx-apk del build-deps ${TARGET_BUILD_DEPS}
-    apk del ${CORE_BUILD_DEPS}
+
     rm -rf /tmp/*
 EOF
 
@@ -305,8 +298,6 @@ RUN <<EOF
     cp *.a /opt/hiredis/lib
 
     rm -rf /tmp/*
-    xx-apk del ${TARGET_BUILD_DEPS}
-    apk del ${CORE_BUILD_DEPS}
 EOF
 
 
@@ -362,8 +353,7 @@ RUN <<EOF
         --enable-fully-static
     make -j install
     mv /etc/unbound/unbound.conf /etc/unbound/unbound.conf.example
-    xx-apk del build-deps ${TARGET_BUILD_DEPS}
-    apk del ${CORE_BUILD_DEPS}
+
     rm -rf /tmp/*
 EOF
 
@@ -391,8 +381,7 @@ RUN <<EOF
         --disable-static
     make -j ${BUILD_THREADS}
     make -j ${BUILD_THREADS} install-drill
-    xx-apk del ${TARGET_BUILD_DEPS}
-    apk del ${CORE_BUILD_DEPS}
+
     rm -rf /tmp/*
 EOF
 
