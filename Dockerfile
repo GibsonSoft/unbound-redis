@@ -254,10 +254,27 @@ ARG OPENSSL_BUILD_DEPS
 COPY --from=sources /tmp/src/openssl-src /tmp/src/openssl-src
 
 RUN <<EOF
+    . /etc/env
     cd ./openssl-src || exit
     xx-apk add --no-cache --virtual build-deps ${OPENSSL_BUILD_DEPS}
 
-    ./Configure $(xx-info os)-$(xx-info march) \
+    export OS=$(xx-info os) MARCH=$(xx-info march)
+
+    if [ ${MARCH} = "armv6l" ] || [ ${MARCH} = "armv7l" ]; then
+       export MARCH="armv4"
+    elif [ ${MARCH} = "i386" ]; then
+       export MARCH="generic32"
+    fi
+
+    if [ ${MARCH} = "riscv64" ] || [ ${MARCH} = "s390x"  ]; then
+       export OS="linux64"
+    fi
+
+    if [ ${MARCH} != "armv4" ] && [ ${MARCH} != "generic32" ] && [ ${MARCH} != "s390x"  ]; then
+       export EC_NISTP="enable-ec_nistp_64_gcc_128"
+    fi    
+
+    ./Configure ${OS}-${MARCH} \
         --prefix=/opt/openssl \
         --openssldir=/opt/openssl \
         no-ssl3 \
@@ -267,7 +284,7 @@ RUN <<EOF
         no-legacy \
         no-shared \
         no-pinshared \
-        enable-ec_nistp_64_gcc_128 \
+        ${EC_NISTP} \
         -static
     make -j ${BUILD_THREADS}
     make -j ${BUILD_THREADS} install_sw
