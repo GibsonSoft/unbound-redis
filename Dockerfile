@@ -10,6 +10,8 @@
 ARG ALPINE_VERSION=latest
 ARG XX_VERSION=latest
 
+
+
 FROM --platform=${BUILDPLATFORM} tonistiigi/xx:${XX_VERSION} AS xx
 FROM --platform=${BUILDPLATFORM} alpine:${ALPINE_VERSION} AS core-base
 WORKDIR /tmp/src
@@ -403,29 +405,43 @@ EOF
 
 
 
-FROM scratch AS final
-WORKDIR /
+FROM target-base AS strip-pack
+WORKDIR /final-root
 SHELL ["/bin/ash", "-cexo", "pipefail"]
 ENV PATH="/bin:/sbin"
 ARG ROOT_HINTS
 ARG ICANN_CERT
 
-ADD ${ROOT_HINTS} /var/chroot/unbound/var/unbound/root.hints
-ADD ${ICANN_CERT} /var/chroot/unbound/var/unbound/icannbundle.pem
+ADD ${ROOT_HINTS} /final-root/var/chroot/unbound/var/unbound/root.hints
+ADD ${ICANN_CERT} /final-root/var/chroot/unbound/var/unbound/icannbundle.pem
 
-COPY ./data/etc/ /var/chroot/unbound/etc/
-COPY --chmod=744 ./data/unbound.bootstrap /unbound
+COPY ./data/etc/ /final-root/var/chroot/unbound/etc/
+COPY --chmod=744 ./data/unbound.bootstrap /final-root/unbound
 
-COPY --from=target-base /bin/busybox /lib/ld-musl*.so.1 /lib/
-COPY --from=target-base /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
+COPY --from=target-base /bin/busybox /lib/ld-musl*.so.1 /final-root/lib/
+COPY --from=target-base /etc/ssl/certs/ca-certificates.crt /final-root/etc/ssl/certs/ca-certificates.crt
 
-COPY --from=openssl /opt/openssl/bin/openssl /bin/openssl
+COPY --from=openssl /opt/openssl/bin/openssl /final-root/bin/openssl
 
-COPY --from=ldns /opt/ldns/bin/drill /bin/drill
+COPY --from=ldns /opt/ldns/bin/drill /final-root/bin/drill
 
-COPY --from=unbound /sbin/unbound* /sbin/
-COPY --from=unbound /etc/unbound/ /var/chroot/unbound/etc/unbound/
-COPY --from=unbound /etc/passwd /etc/group /etc/
+COPY --from=unbound /sbin/unbound* /final-root/sbin/
+COPY --from=unbound /etc/unbound/ /final-root/var/chroot/unbound/etc/unbound/
+COPY --from=unbound /etc/passwd /etc/group /final-root/etc/
+
+RUN <<EOF
+    triple-strip ./sbin/unbound* ./bin/drill ./bin/openssl
+    upx ./sbin/unbound* ./bin/drill ./bin/openssl
+EOF
+
+
+
+FROM scratch AS final
+WORKDIR /
+SHELL ["/bin/ash", "-cexo", "pipefail"]
+ENV PATH="/bin:/sbin"
+
+COPY --from=strip-pack /final-root/ /
 
 RUN ["/lib/busybox", "ln", "-s", "/lib/busybox", "/bin/ash"]
 RUN <<EOF
