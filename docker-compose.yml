@@ -49,6 +49,7 @@ services:
           llvm-libunwind-static
           musl-dev
           linux-headers
+          busybox
 
         PROTOBUF_BUILD_DEPS_BUILD: >
           zlib-dev

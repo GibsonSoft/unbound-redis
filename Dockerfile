@@ -122,6 +122,10 @@ RUN <<EOF
     if [ $(xx-info march) = "s390x" ]; then
        export LDFLAGS="-fuse-ld=lld -static-pie -fpic" && echo "export LDFLAGS='${LDFLAGS}'" >> /etc/env
     fi
+
+    mkdir -p /opt/runtime/bin /opt/runtime/lib
+    cp ${TARGET_SYSROOT}bin/busybox /opt/runtime/bin/busybox
+    cp ${TARGET_SYSROOT}lib/ld-musl*.so.1 /opt/runtime/lib/
 EOF
 
 
@@ -408,7 +412,6 @@ EOF
 FROM target-base AS strip-pack
 WORKDIR /final-root
 SHELL ["/bin/ash", "-cexo", "pipefail"]
-ENV PATH="/bin:/sbin"
 ARG ROOT_HINTS
 ARG ICANN_CERT
 
@@ -418,7 +421,7 @@ ADD ${ICANN_CERT} /final-root/var/chroot/unbound/var/unbound/icannbundle.pem
 COPY ./data/etc/ /final-root/var/chroot/unbound/etc/
 COPY --chmod=744 ./data/unbound.bootstrap /final-root/unbound
 
-COPY --from=target-base /bin/busybox /lib/ld-musl*.so.1 /final-root/lib/
+COPY --from=target-base /opt/runtime/bin/* /opt/runtime/lib/* /final-root/lib/
 COPY --from=target-base /etc/ssl/certs/ca-certificates.crt /final-root/etc/ssl/certs/ca-certificates.crt
 
 COPY --from=openssl /opt/openssl/bin/openssl /final-root/bin/openssl
@@ -430,8 +433,16 @@ COPY --from=unbound /etc/unbound/ /final-root/var/chroot/unbound/etc/unbound/
 COPY --from=unbound /etc/passwd /etc/group /final-root/etc/
 
 RUN <<EOF
-    triple-strip ./sbin/unbound* ./bin/drill ./bin/openssl
-    upx ./sbin/unbound* ./bin/drill ./bin/openssl
+    TRIPLE="$(xx-clang --print-target-triple)"
+
+    find /final-root/sbin/ -type f -name "unbound*" ! -name unbound-control-setup -exec ${TRIPLE}-strip {} \;
+    ${TRIPLE}-strip ./bin/drill ./bin/openssl
+
+    # UPX does not support RISCV54 OR S390X at this time
+    if [ $(xx-info march) != "riscv64" ] && [ $(xx-info march) != "s390x"  ]; then
+        find /final-root/sbin/ -type f -name "unbound*" ! -name unbound-control-setup -exec upx --best --lzma --strip-relocs=0 {} \;
+        upx --best --lzma --strip-relocs=0 ./bin/drill ./bin/openssl
+    fi
 EOF
 
 
