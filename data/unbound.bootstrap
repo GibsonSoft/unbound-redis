@@ -1,24 +1,29 @@
 #!/bin/ash
-# shellcheck disable=SC1017
+# shellcheck shell=dash
+# shellcheck disable=SC1017,SC2004
+# shellcheck enable=require-variable-braces
 # SC1017: Git commits as UNIX-style endings, can ignore
+# SC2004: I just prefer brace syntax
 echo "Starting bootstrap" # Apparantly shellcheck won't shut up until the first non-comment...
 
 # Performance tuning before final cleanup and run
 # See: https://unbound.docs.nlnetlabs.nl/en/latest/topics/core/performance.html
 #
 # Assume we're starting fresh, set some sensible defaults
+#
+# shellcheck disable=SC2215
 if [ ! -f /etc/unbound/unbound.conf ]; then
     # Leave plenty of overhead for malloc (up to 2.5x of set total cache)
-    available_memory=$(printf '%.0f\n' $(echo "$(awk '/^hierarchical_memory_limit/ { print $2 }' /sys/fs/cgroup/memory/memory.stat) * 0.4" | bc -l))
+    available_memory=$(printf '%.0f\n' "$(echo "$(awk '/^hierarchical_memory_limit/ { print $2 }' /sys/fs/cgroup/memory/memory.stat) * 0.4" | bc -l)")
 
     # Don't see a lot of documentation on key and neg cache, but examples
     #   I've seen usually have key = msg and neg about 1/4 of msg
     #
     # 4/17 is based on the following: x[msg] + x[key] + 2x[rr] + (x/4)[neg]
-    msg_cache_size=$(printf '%.0f\n' $(echo "${available_memory} * (4 / 17)" | bc -l))
+    msg_cache_size=$(printf '%.0f\n' "$(echo "${available_memory} * (4 / 17)" | bc -l)")
     key_cache_size=${msg_cache_size}
     rr_cache_size=$(( ${msg_cache_size} * 2 ))
-    neg_cache_size=$(printf '%.0f\n' $(echo "${msg_cache_size} / 4" | bc -l))
+    neg_cache_size=$(printf '%.0f\n' "$(echo "${msg_cache_size} / 4" | bc -l)")
 
     # Use # of available CPUs to calculate threads and slabs
     nproc=$(nproc)
@@ -26,7 +31,7 @@ if [ ! -f /etc/unbound/unbound.conf ]; then
         threads=${nproc}
         
         # Calculate base 2 log of the number of processors
-        nproc_log=$(printf '%.0f\n' $(echo "l(${nproc}) / l(2)" | bc -l))
+        nproc_log=$(printf '%.0f\n' "$(echo "l(${nproc}) / l(2)" | bc -l)")
 
         # Set *-slabs to a power of 2 close to the num-threads value.
         # This reduces lock contention.
@@ -62,13 +67,14 @@ if [ ! -f /etc/unbound/unbound.conf ]; then
     chmod -R 444 /etc/unbound/conf.d.default
 fi
 
-echo $( \
+# shellcheck disable=SC2215
+echo "$( \
     unbound-anchor \
         -v \
         -r /var/unbound/root.hints \
         -c /var/unbound/icannbundle.pem \
         -a /var/unbound/root.key \
-) | grep -q "success: the anchor is ok"
+)" | grep -q "success: the anchor is ok"
 
 if [ "${CONTROL_ENABLE:-no}" == "yes" ]; then
     /sbin/unbound-control-setup -d /var/unbound
