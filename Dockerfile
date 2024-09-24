@@ -70,6 +70,8 @@ RUN <<EOF
         apk add $(echo ${CORE_BUILD_DEPS_EDGE} | sed -e 's/ \|$/@edge /g')
         CORE_BUILD_DEPS="${CORE_BUILD_DEPS} ${CORE_BUILD_DEPS_EDGE}"
     fi
+
+    export CORE_BUILD_DEPS="${CORE_BUILD_DEPS}" && echo "export CORE_BUILD_DEPS='${CORE_BUILD_DEPS}'" >> /etc/env
 EOF
 
 
@@ -122,6 +124,8 @@ ARG TARGET_BUILD_DEPS_EDGE
 ENV TARGET_BUILD_DEPS_EDGE=${TARGET_BUILD_DEPS_EDGE}
 
 RUN <<EOF
+    . /etc/env
+
     xx-info env # Prevent docker build bug that spams console when apk line w/ variable is first
     xx-apk add ${TARGET_BUILD_DEPS}
     ln -s "$(xx-info sysroot)"usr/lib/libunwind.so.1 "$(xx-info sysroot)"usr/lib/libunwind.so
@@ -132,12 +136,10 @@ RUN <<EOF
         TARGET_BUILD_DEPS="${TARGET_BUILD_DEPS} ${TARGET_BUILD_DEPS_EDGE}"
     fi
 
-    TARGET_TRIPLE=$(xx-clang --print-target-triple)
-    export TARGET_TRIPLE && echo "export TARGET_TRIPLE=${TARGET_TRIPLE}" >> /etc/env
-    TARGET_SYSROOT=$(xx-info sysroot)
-    export TARGET_SYSROOT && echo "export TARGET_SYSROOT=${TARGET_SYSROOT}" >> /etc/env
-    PKG_CONFIG=${TARGET_TRIPLE}-pkg-config
-    export PKG_CONFIG && echo "export PKG_CONFIG=${PKG_CONFIG}" >> /etc/env
+    export TARGET_BUILD_DEPS="${TARGET_BUILD_DEPS}" && echo "export TARGET_BUILD_DEPS='${TARGET_BUILD_DEPS}'" >> /etc/env
+    export TARGET_TRIPLE="$(xx-clang --print-target-triple)" && echo "export TARGET_TRIPLE='${TARGET_TRIPLE}'" >> /etc/env
+    export TARGET_SYSROOT="$(xx-info sysroot)" && echo "export TARGET_SYSROOT='${TARGET_SYSROOT}'" >> /etc/env
+    export PKG_CONFIG="${TARGET_TRIPLE}-pkg-config" && echo "export PKG_CONFIG='${PKG_CONFIG}'" >> /etc/env
 
     if [ $(xx-info march) = "s390x" ]; then
        export LDFLAGS="-fuse-ld=lld -static-pie -fpic" && echo "export LDFLAGS='${LDFLAGS}'" >> /etc/env
@@ -160,6 +162,8 @@ ARG PROTOBUF_BUILD_DEPS_BUILD
 COPY --from=sources /tmp/src/protobuf-src /tmp/src/protobuf-src
 
 RUN <<EOF
+    . /etc/env
+
     cd ./protobuf-src || exit
     apk add --virtual build-deps ${TARGET_BUILD_DEPS} ${PROTOBUF_BUILD_DEPS_BUILD}
     if [ ! -z ${TARGET_BUILD_DEPS_EDGE} ]; then
@@ -198,6 +202,8 @@ COPY --from=protobuf-build /opt/protobuf/include /usr/include
 COPY --from=sources /tmp/src/protobuf-c-src /tmp/src/protobuf-c-src
 
 RUN <<EOF
+    . /etc/env
+
     cd protobuf-c-src || exit
     apk add --virtual build-deps ${TARGET_BUILD_DEPS}
     if [ ! -z ${TARGET_BUILD_DEPS_EDGE} ]; then
@@ -227,6 +233,7 @@ COPY --from=sources /tmp/src/protobuf-src /tmp/src/protobuf-src
 
 RUN <<EOF
     . /etc/env
+
     cd ./protobuf-src || exit
     xx-apk add --virtual build-deps ${PROTOBUF_BUILD_DEPS_HOST}
 
@@ -292,6 +299,7 @@ COPY --from=sources /tmp/src/openssl-src /tmp/src/openssl-src
 
 RUN <<EOF
     . /etc/env
+
     cd ./openssl-src || exit
 
     export OS=$(xx-info os) MARCH=$(xx-info march)
@@ -340,6 +348,8 @@ COPY --from=sources /tmp/src/hiredis-src /tmp/src/hiredis-src
 COPY --from=openssl /opt/openssl /opt/openssl
 
 RUN <<EOF
+    . /etc/env
+
     cd ./hiredis-src || exit
 
     export CFLAGS="${CFLAGS} -I/opt/openssl/include"
@@ -423,6 +433,7 @@ COPY --from=openssl /opt/openssl /opt/openssl
 
 RUN <<EOF
     . /etc/env
+
     cd ./ldns-src || exit
     
     libtoolize -ci
@@ -468,6 +479,7 @@ COPY --from=unbound /etc/unbound/ /final-root/var/chroot/unbound/etc/unbound/
 COPY --from=unbound /etc/passwd /etc/group /final-root/etc/
 
 RUN <<EOF
+    . /etc/env
     TRIPLE="$(xx-clang --print-target-triple)"
 
     find /final-root/sbin/ -type f -name "unbound*" ! -name unbound-control-setup -exec ${TRIPLE}-strip {} \;
