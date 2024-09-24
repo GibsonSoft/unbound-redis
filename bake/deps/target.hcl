@@ -8,6 +8,9 @@ target "default" {
             "musl-dev",
             "linux-headers",
             "busybox"
+        ]),
+        TARGET_BUILD_DEPS_EDGE = join(" ", [
+            
         ])
     }
 }

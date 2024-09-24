@@ -2,7 +2,6 @@ target "default" {
     args = {
         CORE_BUILD_DEPS = join(" ", [
             "clang",
-            "lld@edge=~18.1",
             "llvm",
             "make",
             "cmake",
@@ -17,6 +16,9 @@ target "default" {
             "automake",
             "autoconf",
             "libtool"
+        ]),
+        CORE_BUILD_DEPS_EDGE = join(" ", [
+            "lld"
         ])
     }
 }

@@ -16,8 +16,6 @@ FROM --platform=${BUILDPLATFORM} tonistiigi/xx:${XX_VERSION} AS xx
 FROM --platform=${BUILDPLATFORM} alpine:${ALPINE_VERSION} AS core-base
 WORKDIR /tmp/src
 SHELL ["/bin/ash", "-cexo", "pipefail"]
-ARG CORE_BUILD_DEPS
-ARG BUILD_THREADS
 
 ENV CC="xx-clang"
 ENV CXX="xx-clang++"
@@ -26,8 +24,15 @@ ENV CXXFLAGS="-fPIE -fPIC"
 ENV LDFLAGS="-fuse-ld=lld -rtlib=compiler-rt -unwindlib=libunwind -static-pie -fpic"
 ENV XX_CC_PREFER_LINKER=lld
 ENV XX_CC_PREFER_STATIC_LINKER=lld
+
+ARG BUILD_THREADS
 ENV BUILD_THREADS=${BUILD_THREADS:-1}
+
+ARG CORE_BUILD_DEPS
 ENV CORE_BUILD_DEPS=${CORE_BUILD_DEPS}
+
+ARG CORE_BUILD_DEPS_EDGE
+ENV CORE_BUILD_DEPS_EDGE=${CORE_BUILD_DEPS_EDGE}
 
 ARG OPENSSL_GIT_COMMIT
 ARG OPENSSL_VERSION
@@ -58,8 +63,13 @@ COPY --from=xx / /
 RUN <<EOF
     echo "@edge https://dl-cdn.alpinelinux.org/alpine/edge/main" >> /etc/apk/repositories
     echo "@edge https://dl-cdn.alpinelinux.org/alpine/edge/community" >> /etc/apk/repositories
-    apk --no-cache upgrade 
+    apk --no-cache upgrade
     apk add --no-cache ${CORE_BUILD_DEPS}
+
+    if [ ! -z ${CORE_BUILD_DEPS_EDGE} ]; then
+        apk add --no-cache $(echo ${CORE_BUILD_DEPS_EDGE} | sed -e 's/ \|$/@edge /g')
+        CORE_BUILD_DEPS="${CORE_BUILD_DEPS} ${CORE_BUILD_DEPS_EDGE}"
+    fi
 EOF
 
 
@@ -105,12 +115,18 @@ SHELL ["/bin/ash", "-cexo", "pipefail"]
 ARG TARGETPLATFORM
 ARG TARGETARCH
 ARG TARGET_BUILD_DEPS
+ARG TARGET_BUILD_DEPS_EDGE
 
 RUN <<EOF
     xx-info env # Prevent docker build bug that spams console when apk line w/ variable is first
     xx-apk add --no-cache ${TARGET_BUILD_DEPS}
     ln -s "$(xx-info sysroot)"usr/lib/libunwind.so.1 "$(xx-info sysroot)"usr/lib/libunwind.so
     xx-clang --setup-target-triple
+
+    if [ ! -z ${TARGET_BUILD_DEPS_EDGE} ]; then
+        xx-apk add --no-cache $(echo ${TARGET_BUILD_DEPS_EDGE} | sed -e 's/ \|$/@edge /g')
+        TARGET_BUILD_DEPS="${TARGET_BUILD_DEPS} ${TARGET_BUILD_DEPS_EDGE}"
+    fi
 
     TARGET_TRIPLE=$(xx-clang --print-target-triple)
     export TARGET_TRIPLE && echo "export TARGET_TRIPLE=${TARGET_TRIPLE}" >> /etc/env
@@ -133,8 +149,8 @@ EOF
 FROM core-base AS protobuf-build
 WORKDIR /tmp/src
 SHELL ["/bin/ash", "-cexo", "pipefail"]
-ARG CORE_BUILD_DEPS
 ARG TARGET_BUILD_DEPS
+ARG TARGET_BUILD_DEPS_EDGE
 ARG PROTOBUF_BUILD_DEPS_BUILD
 
 COPY --from=sources /tmp/src/protobuf-src /tmp/src/protobuf-src
@@ -142,6 +158,9 @@ COPY --from=sources /tmp/src/protobuf-src /tmp/src/protobuf-src
 RUN <<EOF
     cd ./protobuf-src || exit
     apk add --no-cache --virtual build-deps ${TARGET_BUILD_DEPS} ${PROTOBUF_BUILD_DEPS_BUILD}
+    if [ ! -z ${TARGET_BUILD_DEPS_EDGE} ]; then
+        apk add --no-cache $(echo ${TARGET_BUILD_DEPS_EDGE} | sed -e 's/ \|$/@edge /g')
+    fi
 
     cmake \
         -S. \
@@ -155,6 +174,10 @@ RUN <<EOF
     make -j ${BUILD_THREADS} install
 
     rm -rf /tmp/*
+    apk del build-deps ${CORE_BUILD_DEPS}
+    if [ ! -z ${TARGET_BUILD_DEPS_EDGE} ]; then
+        apk del ${TARGET_BUILD_DEPS_EDGE}
+    fi
 EOF
 
 
@@ -162,8 +185,8 @@ EOF
 FROM core-base AS protobuf-c-build
 WORKDIR /tmp/src
 SHELL ["/bin/ash", "-cexo", "pipefail"]
-ARG CORE_BUILD_DEPS
 ARG TARGET_BUILD_DEPS
+ARG TARGET_BUILD_DEPS_EDGE
 
 COPY --from=protobuf-build /opt/protobuf/bin /usr/bin
 COPY --from=protobuf-build /opt/protobuf/lib /usr/lib
@@ -173,12 +196,19 @@ COPY --from=sources /tmp/src/protobuf-c-src /tmp/src/protobuf-c-src
 RUN <<EOF
     cd protobuf-c-src || exit
     apk add --no-cache --virtual build-deps ${TARGET_BUILD_DEPS}
+    if [ ! -z ${TARGET_BUILD_DEPS_EDGE} ]; then
+        apk add --no-cache $(echo ${TARGET_BUILD_DEPS_EDGE} | sed -e 's/ \|$/@edge /g')
+    fi
 
     ./autogen.sh && ./configure --prefix=/opt/protobuf-c
     make -j ${BUILD_THREADS} install-binPROGRAMS
     ln -s protoc-gen-c /opt/protobuf-c/bin/protoc-c
 
     rm -rf /tmp/*
+    apk del build-deps ${CORE_BUILD_DEPS}
+    if [ ! -z ${TARGET_BUILD_DEPS_EDGE} ]; then
+        apk del ${TARGET_BUILD_DEPS_EDGE}
+    fi
 EOF
 
 
@@ -186,8 +216,6 @@ EOF
 FROM target-base AS protobuf-host
 WORKDIR /tmp/src
 SHELL ["/bin/ash", "-cexo", "pipefail"]
-ARG CORE_BUILD_DEPS
-ARG TARGET_BUILD_DEPS
 ARG PROTOBUF_BUILD_DEPS_HOST
 ARG TARGETARCH
 
@@ -217,6 +245,8 @@ RUN <<EOF
     make -j ${BUILD_THREADS} install
 
     rm -rf /tmp/*
+    apk del ${CORE_BUILD_DEPS}
+    xx-apk del build-deps ${TARGET_BUILD_DEPS}
 EOF
 
 
@@ -224,8 +254,6 @@ EOF
 FROM target-base AS protobuf-c-host
 WORKDIR /tmp/src
 SHELL ["/bin/ash", "-cexo", "pipefail"]
-ARG CORE_BUILD_DEPS
-ARG TARGET_BUILD_DEPS
 
 COPY --from=protobuf-build /opt/protobuf/bin /usr/bin
 COPY --from=protobuf-host /opt/protobuf/lib /usr/lib
@@ -246,6 +274,8 @@ RUN <<EOF
     make -j ${BUILD_THREADS} install
 
     rm -rf /tmp/*
+    apk del ${CORE_BUILD_DEPS}
+    xx-apk del ${TARGET_BUILD_DEPS}
 EOF
 
 
@@ -253,8 +283,6 @@ EOF
 FROM target-base AS openssl
 WORKDIR /tmp/src
 SHELL ["/bin/ash", "-cexo", "pipefail"]
-ARG CORE_BUILD_DEPS
-ARG TARGET_BUILD_DEPS
 ARG OPENSSL_BUILD_DEPS
 
 COPY --from=sources /tmp/src/openssl-src /tmp/src/openssl-src
@@ -296,6 +324,8 @@ RUN <<EOF
     make -j ${BUILD_THREADS} install_sw
 
     rm -rf /tmp/*
+    apk del ${CORE_BUILD_DEPS}
+    xx-apk del build-deps ${TARGET_BUILD_DEPS}
 EOF
 
 
@@ -303,8 +333,6 @@ EOF
 FROM target-base AS hiredis
 WORKDIR /tmp/src
 SHELL ["/bin/ash", "-cexo", "pipefail"]
-ARG CORE_BUILD_DEPS
-ARG TARGET_BUILD_DEPS
 
 COPY --from=sources /tmp/src/hiredis-src /tmp/src/hiredis-src
 COPY --from=openssl /opt/openssl /opt/openssl
@@ -320,6 +348,8 @@ RUN <<EOF
     cp *.a /opt/hiredis/lib
 
     rm -rf /tmp/*
+    apk del ${CORE_BUILD_DEPS}
+    xx-apk del ${TARGET_BUILD_DEPS}
 EOF
 
 
@@ -327,7 +357,6 @@ EOF
 FROM target-base AS unbound
 WORKDIR /tmp/src
 SHELL ["/bin/ash", "-cexo", "pipefail"]
-
 ARG UNBOUND_BUILD_DEPS
 
 COPY --from=sources /tmp/src/unbound-src /tmp/src/unbound-src
@@ -377,6 +406,8 @@ RUN <<EOF
     mv /etc/unbound/unbound.conf /etc/unbound/unbound.conf.example
 
     rm -rf /tmp/*
+    apk del ${CORE_BUILD_DEPS}
+    xx-apk del build-deps ${TARGET_BUILD_DEPS}
 EOF
 
 
@@ -405,6 +436,8 @@ RUN <<EOF
     make -j ${BUILD_THREADS} install-drill
 
     rm -rf /tmp/*
+    apk del ${CORE_BUILD_DEPS}
+    xx-apk del ${TARGET_BUILD_DEPS}
 EOF
 
 
@@ -443,6 +476,9 @@ RUN <<EOF
         find /final-root/sbin/ -type f -name "unbound*" ! -name unbound-control-setup -exec upx --best --lzma --strip-relocs=0 {} \;
         upx --best --lzma --strip-relocs=0 ./bin/drill ./bin/openssl
     fi
+
+    apk del ${CORE_BUILD_DEPS}
+    xx-apk del ${TARGET_BUILD_DEPS}
 EOF
 
 
