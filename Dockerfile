@@ -63,11 +63,11 @@ COPY --from=xx / /
 RUN <<EOF
     echo "@edge https://dl-cdn.alpinelinux.org/alpine/edge/main" >> /etc/apk/repositories
     echo "@edge https://dl-cdn.alpinelinux.org/alpine/edge/community" >> /etc/apk/repositories
-    apk --no-cache upgrade
-    apk add --no-cache ${CORE_BUILD_DEPS}
+    apk upgrade
+    apk add ${CORE_BUILD_DEPS}
 
     if [ ! -z ${CORE_BUILD_DEPS_EDGE} ]; then
-        apk add --no-cache $(echo ${CORE_BUILD_DEPS_EDGE} | sed -e 's/ \|$/@edge /g')
+        apk add $(echo ${CORE_BUILD_DEPS_EDGE} | sed -e 's/ \|$/@edge /g')
         CORE_BUILD_DEPS="${CORE_BUILD_DEPS} ${CORE_BUILD_DEPS_EDGE}"
     fi
 EOF
@@ -114,17 +114,21 @@ WORKDIR /tmp/src
 SHELL ["/bin/ash", "-cexo", "pipefail"]
 ARG TARGETPLATFORM
 ARG TARGETARCH
+
 ARG TARGET_BUILD_DEPS
+ENV TARGET_BUILD_DEPS=${TARGET_BUILD_DEPS}
+
 ARG TARGET_BUILD_DEPS_EDGE
+ENV TARGET_BUILD_DEPS_EDGE=${TARGET_BUILD_DEPS_EDGE}
 
 RUN <<EOF
     xx-info env # Prevent docker build bug that spams console when apk line w/ variable is first
-    xx-apk add --no-cache ${TARGET_BUILD_DEPS}
+    xx-apk add ${TARGET_BUILD_DEPS}
     ln -s "$(xx-info sysroot)"usr/lib/libunwind.so.1 "$(xx-info sysroot)"usr/lib/libunwind.so
     xx-clang --setup-target-triple
 
     if [ ! -z ${TARGET_BUILD_DEPS_EDGE} ]; then
-        xx-apk add --no-cache $(echo ${TARGET_BUILD_DEPS_EDGE} | sed -e 's/ \|$/@edge /g')
+        xx-apk add  $(echo ${TARGET_BUILD_DEPS_EDGE} | sed -e 's/ \|$/@edge /g')
         TARGET_BUILD_DEPS="${TARGET_BUILD_DEPS} ${TARGET_BUILD_DEPS_EDGE}"
     fi
 
@@ -157,9 +161,9 @@ COPY --from=sources /tmp/src/protobuf-src /tmp/src/protobuf-src
 
 RUN <<EOF
     cd ./protobuf-src || exit
-    apk add --no-cache --virtual build-deps ${TARGET_BUILD_DEPS} ${PROTOBUF_BUILD_DEPS_BUILD}
+    apk add --virtual build-deps ${TARGET_BUILD_DEPS} ${PROTOBUF_BUILD_DEPS_BUILD}
     if [ ! -z ${TARGET_BUILD_DEPS_EDGE} ]; then
-        apk add --no-cache $(echo ${TARGET_BUILD_DEPS_EDGE} | sed -e 's/ \|$/@edge /g')
+        apk add  $(echo ${TARGET_BUILD_DEPS_EDGE} | sed -e 's/ \|$/@edge /g')
     fi
 
     cmake \
@@ -195,9 +199,9 @@ COPY --from=sources /tmp/src/protobuf-c-src /tmp/src/protobuf-c-src
 
 RUN <<EOF
     cd protobuf-c-src || exit
-    apk add --no-cache --virtual build-deps ${TARGET_BUILD_DEPS}
+    apk add --virtual build-deps ${TARGET_BUILD_DEPS}
     if [ ! -z ${TARGET_BUILD_DEPS_EDGE} ]; then
-        apk add --no-cache $(echo ${TARGET_BUILD_DEPS_EDGE} | sed -e 's/ \|$/@edge /g')
+        apk add  $(echo ${TARGET_BUILD_DEPS_EDGE} | sed -e 's/ \|$/@edge /g')
     fi
 
     ./autogen.sh && ./configure --prefix=/opt/protobuf-c
@@ -224,7 +228,7 @@ COPY --from=sources /tmp/src/protobuf-src /tmp/src/protobuf-src
 RUN <<EOF
     . /etc/env
     cd ./protobuf-src || exit
-    xx-apk add --no-cache --virtual build-deps ${PROTOBUF_BUILD_DEPS_HOST}
+    xx-apk add --virtual build-deps ${PROTOBUF_BUILD_DEPS_HOST}
 
     if [ ${TARGETARCH} = 'ppc64le' ]; then
         export CFLAGS="${CFLAGS} -DABSL_USE_UNSCALED_CYCLECLOCK=0"
@@ -283,14 +287,12 @@ EOF
 FROM target-base AS openssl
 WORKDIR /tmp/src
 SHELL ["/bin/ash", "-cexo", "pipefail"]
-ARG OPENSSL_BUILD_DEPS
 
 COPY --from=sources /tmp/src/openssl-src /tmp/src/openssl-src
 
 RUN <<EOF
     . /etc/env
     cd ./openssl-src || exit
-    xx-apk add --no-cache --virtual build-deps ${OPENSSL_BUILD_DEPS}
 
     export OS=$(xx-info os) MARCH=$(xx-info march)
 
@@ -325,7 +327,7 @@ RUN <<EOF
 
     rm -rf /tmp/*
     apk del ${CORE_BUILD_DEPS}
-    xx-apk del build-deps ${TARGET_BUILD_DEPS}
+    xx-apk del ${TARGET_BUILD_DEPS}
 EOF
 
 
@@ -369,7 +371,7 @@ RUN <<EOF
     . /etc/env
 
     cd ./unbound-src || exit
-    xx-apk add --no-cache --virtual build-deps ${UNBOUND_BUILD_DEPS}
+    xx-apk add --virtual build-deps ${UNBOUND_BUILD_DEPS}
 
     addgroup -S _unbound
     adduser -S -s /dev/null -h /etc/unbound -G _unbound _unbound
