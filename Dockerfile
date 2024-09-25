@@ -487,8 +487,8 @@ RUN <<EOF
 
     # UPX does not support RISCV54 OR S390X at this time
     if [ $(xx-info march) != "riscv64" ] && [ $(xx-info march) != "s390x"  ]; then
-        find /final-root/sbin/ -type f -name "unbound*" ! -name unbound-control-setup -exec upx --best --lzma --strip-relocs=0 {} \;
-        upx --best --lzma --strip-relocs=0 ./bin/drill ./bin/openssl
+        find /final-root/sbin/ -type f -name "unbound*" ! -name unbound-control-setup -exec upx --best --lzma {} \;
+        upx --best --lzma ./bin/drill ./bin/openssl
     fi
 
     apk del ${CORE_BUILD_DEPS}
